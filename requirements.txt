@@ -1,0 +1,14 @@
+fastapi
+scalar-fastapi
+uvicorn
+SQLAlchemy
+alembic
+redis
+asyncpg
+python-jose[cryptography]
+bcrypt
+pydantic
+pydantic-settings
+pycountry
+aio-pika
+tzdata

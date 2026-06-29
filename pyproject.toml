@@ -1,0 +1,233 @@
+# =============================================================================
+#  Ruff — linter & formatter
+#  Stack: FastAPI · Pydantic v2 · SQLAlchemy/Alembic · Celery · pytest
+#  Docs:  https://docs.astral.sh/ruff/
+# =============================================================================
+
+[tool.ruff]
+target-version = "py313"
+line-length    = 100
+
+# Ruff already ignores: .git, .venv, __pycache__, build, dist
+exclude = [
+    ".cursor",
+    ".vscode",
+    "cron",
+    "migrations",   # Alembic auto-generated — do not lint
+]
+
+
+# =============================================================================
+#  LINT
+# =============================================================================
+[tool.ruff.lint]
+
+select = [
+    # ── Core ──────────────────────────────────────────────────────────────────
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes          — undefined names, unused imports
+    "I",    # isort             — import ordering
+
+    # ── Bugs & design issues ──────────────────────────────────────────────────
+    "B",    # flake8-bugbear    — likely bugs and design problems
+    "C4",   # flake8-comprehensions — unnecessary list()/dict()/set() calls
+    "SIM",  # flake8-simplify   — redundant conditions, merging, etc.
+    "RET",  # flake8-return     — implicit / inconsistent return paths
+    "PIE",  # flake8-pie        — misc code smells (unnecessary pass, etc.)
+    "RSE",  # flake8-raise      — redundant exception args
+    "FLY",  # flynt             — prefer f-strings over %-format/.format()
+    "PERF", # perflint          — common performance anti-patterns
+
+    # ── Security ──────────────────────────────────────────────────────────────
+    "S",    # flake8-bandit     — security issues (SQL injection, secrets…)
+    "BLE",  # flake8-blind-except — catches bare `except Exception`
+    "T10",  # flake8-debugger   — leftover breakpoint()/pdb traces
+
+    # ── Imports & type hygiene ────────────────────────────────────────────────
+    "TCH",  # flake8-type-checking — move pure-type imports into TYPE_CHECKING
+    "TID",  # flake8-tidy-imports  — ban relative/wildcard imports
+    "ICN",  # flake8-import-conventions — np/pd/etc. naming conventions
+    "INP",  # flake8-no-pep420     — no implicit namespace packages
+
+    # ── Naming ────────────────────────────────────────────────────────────────
+    "N",    # pep8-naming       — class/function/variable/module naming
+
+    # ── Modernisation ─────────────────────────────────────────────────────────
+    "UP",   # pyupgrade         — rewrite to modern Python syntax
+    "YTT",  # flake8-2020       — sys.version pitfalls
+
+    # ── Async (critical for FastAPI) ──────────────────────────────────────────
+    "ASYNC", # flake8-async     — blocking calls inside async functions
+
+    # ── Datetime ──────────────────────────────────────────────────────────────
+    "DTZ",  # flake8-datetimez  — naive datetime (missing tz=UTC)
+
+    # ── Logging ───────────────────────────────────────────────────────────────
+    "G",    # flake8-logging-format — no f-strings in logging args
+    "LOG",  # flake8-logging       — logging anti-patterns
+
+    # ── Testing (pytest) ──────────────────────────────────────────────────────
+    "PT",   # flake8-pytest-style  — fixtures, raises, parametrize style
+
+    # ── Pylint (high-value subset) ────────────────────────────────────────────
+    "PL",   # pylint            — complexity, duplicate branches, etc.
+
+    # ── Ruff-native ───────────────────────────────────────────────────────────
+    "RUF",  # Ruff-specific     — ambiguous chars, mutable defaults, etc.
+
+    # ── Intentionally omitted ─────────────────────────────────────────────────
+    # "FBT"  — boolean traps; unavoidable with FastAPI query/body booleans
+    # "ARG"  — unused args; unavoidable in Pydantic validators & overrides
+    # "ANN"  — annotations; enforce with mypy/pyright instead
+    # "ERA"  — eradicate; too many false-positives on intentional comments
+    # "FIX"  — fixme; TODO: is normal in active development
+    # "T20"  — print; overly strict during development
+    # "COM"  — commas; formatter manages trailing commas
+    # "Q"    — quotes; formatter owns quote style
+    # "NPY"  — NumPy rules; not in this stack
+    # "INT"  — gettext; no i18n in this stack
+    # "PYI"  — stub-file rules; no .pyi stubs in this stack
+    # "EXE"  — executable bits; irrelevant for backend code
+]
+
+ignore = [
+    # ── Ruff formatter conflicts (always required) ────────────────────────────
+    "COM812",   # trailing comma        — formatter handles automatically
+    "ISC001",   # implicit str concat   — formatter handles automatically
+
+    # ── FastAPI ───────────────────────────────────────────────────────────────
+    "B008",     # function call in default arg — required for Depends() / Field()
+    "B006",     # mutable default arg   — Pydantic Field(default_factory=) is safe
+
+    # ── Pydantic v2 ───────────────────────────────────────────────────────────
+    "RUF012",   # mutable ClassVar      — Pydantic model_fields aren't ClassVar
+
+    # ── SQLAlchemy ────────────────────────────────────────────────────────────
+    "A003",     # attr shadows builtin  — `id`, `type`, `metadata` are idiomatic in ORM models
+    "N805",     # first arg not `self`  — SQLAlchemy @declared_attr uses `cls`
+
+    # ── Exception style — too strict for HTTP error responses ─────────────────
+    "TRY003",   # long message outside exception class
+    "EM101",    # string literal in raise
+    "EM102",    # f-string in raise
+
+    # ── Celery ────────────────────────────────────────────────────────────────
+    "INP001",   # implicit namespace pkg — Celery task modules are often rootless
+
+    # ── Naming — silence only what you genuinely can't rename ─────────────────
+    "N801",     # class not CapWords
+    "N802",     # function not lowercase
+    "N803",     # argument not lowercase
+    "N806",     # variable not lowercase in function
+    "N811",     # constant imported as non-constant
+    "N812",     # lowercase imported as non-lowercase
+
+    # ── Pylint — relax for typical backend patterns ───────────────────────────
+    "PLR0913",  # too many arguments    — route handlers legitimately have many params
+    "PLR2004",  # magic value comparison — common in status-code checks (globally; tighter in tests)
+]
+
+
+# =============================================================================
+#  PER-FILE OVERRIDES
+# =============================================================================
+[tool.ruff.lint.per-file-ignores]
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+"tests/**/*.py" = [
+    "S101",     # assert is idiomatic in pytest
+    "S105",     # hardcoded passwords in fixtures are fine
+    "S106",     # hardcoded passwords in test helpers are fine
+    "PLR2004",  # magic values are fine in assertions
+    "PLR0913",  # test factories / fixtures can have many params
+    "SLF001",   # accessing private members is fine in tests
+]
+"conftest.py" = ["S101", "PLR0913"]
+
+# ── FastAPI routers ───────────────────────────────────────────────────────────
+"**/routers/**/*.py" = [
+    "B008",     # Depends() in function defaults — already globally ignored but explicit here
+]
+"**/api/**/*.py" = ["B008"]
+
+# ── SQLAlchemy models ─────────────────────────────────────────────────────────
+"**/models/**/*.py" = [
+    "A003",     # `id`, `type`, `metadata` shadow builtins — idiomatic in ORMs
+    "RUF012",   # Pydantic/SQLAlchemy fields look mutable but aren't
+    "N805",     # @declared_attr uses `cls` as first arg, not `self`
+]
+
+# ── Celery tasks ──────────────────────────────────────────────────────────────
+"**/tasks/**/*.py" = [
+    "INP001",   # implicit namespace packages common in task modules
+]
+
+# ── Alembic migrations ────────────────────────────────────────────────────────
+"migrations/versions/*.py" = [
+    "N999",     # auto-generated filenames don't follow naming rules
+    "E501",     # long lines in auto-generated `op.create_table(...)` calls
+]
+
+# ── Settings / config ─────────────────────────────────────────────────────────
+"**/config.py"   = ["S105", "S106"]   # env var defaults look like hardcoded secrets
+"**/settings.py" = ["S105", "S106"]
+
+
+# =============================================================================
+#  PLUGIN SETTINGS
+# =============================================================================
+
+[tool.ruff.lint.isort]
+# Match your actual top-level package name(s) — Ruff uses this to separate
+# first-party imports from third-party ones in the import block.
+known-first-party          = ["app", "api", "core", "config", "worker"]
+force-sort-within-sections = true
+split-on-trailing-comma    = true
+
+[tool.ruff.lint.pylint]
+max-args       = 8    # default 5 is too tight for FastAPI route handlers
+max-branches   = 15   # default 12; slightly relaxed for complex business logic
+max-statements = 60   # default 50; relaxed for data-heavy endpoints
+
+[tool.ruff.lint.flake8-bugbear]
+# Extra callables treated as immutable even though they look like calls.
+# Add your own factory functions here if needed.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Cookie",
+    "fastapi.Security",
+    "pydantic.Field",
+    "pydantic.model_validator",
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses    = false   # prefer `@pytest.fixture` over `@pytest.fixture()`
+mark-parentheses       = false   # prefer `@pytest.mark.slow` over `@pytest.mark.slow()`
+raises-require-match-for = ["*"]   # `pytest.raises(X)` must include `match=`
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow relative imports beyond one level; keeps large codebases navigable.
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.flake8-type-checking]
+# Keep Pydantic model annotations at runtime (Pydantic v2 needs them).
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.BaseSettings"]
+# SQLAlchemy DeclarativeBase also needs runtime annotations.
+runtime-evaluated-decorators   = ["sqlalchemy.orm.mapped_column"]
+
+
+# =============================================================================
+#  FORMAT
+# =============================================================================
+[tool.ruff.format]
+quote-style               = "double"
+indent-style              = "space"
+line-ending               = "auto"
+skip-magic-trailing-comma = false   # trailing comma = intent to expand; respect it

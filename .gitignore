@@ -1,0 +1,40 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs and Editors
+.idea/
+.vscode/
+.cursor/
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Environment variables
+.env
+.env.*
+
+# Archives (like the project.tar you uploaded)
+*.tar
+*.gz
+*.zip
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+_alembic_tmp.db
+
+# OS generated files
+.DS_Store
+Thumbs.db

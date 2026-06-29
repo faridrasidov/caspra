@@ -1,0 +1,7 @@
+ruff
+pytest
+pytest-asyncio
+httpx
+factory_boy
+faker
+aiosqlite
