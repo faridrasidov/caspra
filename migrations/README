@@ -1,0 +1,20 @@
+# Migrations
+
+Alembic migrations for traia. The database URL is loaded from `.env` via
+`app.core.config.settings` — not from `alembic.ini`.
+
+## Commands
+
+Create:   alembic revision --autogenerate -m "describe change"
+Apply:    alembic upgrade head
+Rollback: alembic downgrade -1
+History:  alembic history
+Current:  alembic current
+Heads:    alembic heads
+
+## Requirements
+
+- `.env` must define `POSTGRES_*` variables.
+- Every ORM model must be imported in `app/models/__init__.py` so autogenerate
+  sees all tables on `Base.metadata`.
+- New revision files are auto-formatted by ruff (see `alembic.ini` post_write_hooks).
