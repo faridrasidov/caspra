@@ -27,13 +27,54 @@
         }
       }
     },
+    "/api/v1/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness",
+        "operationId": "liveness_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness",
+        "operationId": "readiness_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/api/v1/auth/login": {
       "post": {
         "tags": [
           "admin-auth"
         ],
         "summary": "Login",
-        "description": "Authenticate an admin user and return access + refresh tokens.",
         "operationId": "login_admin_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -75,17 +116,23 @@
           "admin-auth"
         ],
         "summary": "Refresh",
-        "description": "Exchange a refresh token for a new token pair.",
         "operationId": "refresh_admin_api_v1_auth_refresh_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -117,17 +164,23 @@
           "admin-auth"
         ],
         "summary": "Logout",
-        "description": "Revoke the supplied refresh token.",
         "operationId": "logout_admin_api_v1_auth_logout_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "204": {
@@ -151,13 +204,31 @@
         ]
       }
     },
+    "/admin/api/v1/auth/sessions/revoke-all": {
+      "post": {
+        "tags": [
+          "admin-auth"
+        ],
+        "summary": "Revoke All Sessions",
+        "operationId": "revoke_all_sessions_admin_api_v1_auth_sessions_revoke_all_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/admin/api/v1/auth/me": {
       "get": {
         "tags": [
           "admin-auth"
         ],
         "summary": "Get Me",
-        "description": "Return the authenticated admin user's profile.",
         "operationId": "get_me_admin_api_v1_auth_me_get",
         "responses": {
           "200": {
@@ -184,7 +255,6 @@
           "admin-auth"
         ],
         "summary": "Get Permissions",
-        "description": "Return the permission codes for the authenticated admin.",
         "operationId": "get_permissions_admin_api_v1_auth_permissions_get",
         "responses": {
           "200": {
@@ -2176,7 +2246,55 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeviceOut"
+                  "$ref": "#/components/schemas/DeviceProvisioningOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/devices/{device_id}/credentials/rotate": {
+      "post": {
+        "tags": [
+          "admin-devices"
+        ],
+        "summary": "Rotate Device Credentials",
+        "operationId": "rotate_device_credentials_admin_api_v1_devices__device_id__credentials_rotate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "device_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Device Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCredentialOut"
                 }
               }
             }
@@ -2405,7 +2523,7 @@
           "admin-devices"
         ],
         "summary": "Reset Device",
-        "description": "Reset a device to active status.",
+        "description": "Queue a reset command that remains pending until device acknowledgement.",
         "operationId": "reset_device_admin_api_v1_devices__device_id__reset_post",
         "security": [
           {
@@ -2424,13 +2542,23 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceResetRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DeviceOut"
+                  "$ref": "#/components/schemas/DeviceCommandOut"
                 }
               }
             }
@@ -3164,6 +3292,250 @@
         }
       }
     },
+    "/admin/api/v1/ledger/reconciliation": {
+      "get": {
+        "tags": [
+          "admin-ledger"
+        ],
+        "summary": "Reconciliation Report",
+        "operationId": "reconciliation_report_admin_api_v1_ledger_reconciliation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "issue_limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Issue Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationReportOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/offline/policy": {
+      "get": {
+        "tags": [
+          "admin-offline"
+        ],
+        "summary": "Get Offline Policy",
+        "operationId": "get_offline_policy_admin_api_v1_offline_policy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/OfflinePolicyOut"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Offline Policy Admin Api V1 Offline Policy Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "admin-offline"
+        ],
+        "summary": "Update Offline Policy",
+        "operationId": "update_offline_policy_admin_api_v1_offline_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfflinePolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflinePolicyOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/api/v1/offline/review": {
+      "get": {
+        "tags": [
+          "admin-offline"
+        ],
+        "summary": "List Offline Review",
+        "operationId": "list_offline_review_admin_api_v1_offline_review_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OfflineReviewItemOut"
+                  },
+                  "title": "Response List Offline Review Admin Api V1 Offline Review Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/offline/review/{offline_transaction_id}": {
+      "post": {
+        "tags": [
+          "admin-offline"
+        ],
+        "summary": "Decide Offline Review",
+        "operationId": "decide_offline_review_admin_api_v1_offline_review__offline_transaction_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "offline_transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Offline Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfflineReviewDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfflineReviewItemOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/api/v1/locations": {
       "get": {
         "tags": [
@@ -3660,60 +4032,6 @@
         ]
       }
     },
-    "/admin/api/v1/reports/devices": {
-      "get": {
-        "tags": [
-          "admin-reports"
-        ],
-        "summary": "Devices Report",
-        "description": "Per-device activity report (TODO: needs sales-line attribution).",
-        "operationId": "devices_report_admin_api_v1_reports_devices_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeviceReportOut"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/admin/api/v1/reports/top-products": {
-      "get": {
-        "tags": [
-          "admin-reports"
-        ],
-        "summary": "Top Products Report",
-        "description": "Top products by revenue (TODO: needs order/line-item model).",
-        "operationId": "top_products_report_admin_api_v1_reports_top_products_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TopProductsOut"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/admin/api/v1/reports/customer-activity": {
       "get": {
         "tags": [
@@ -3941,7 +4259,6 @@
           "admin-webhooks"
         ],
         "summary": "List Webhooks",
-        "description": "List webhooks for the caller's tenant.",
         "operationId": "list_webhooks_admin_api_v1_webhooks_get",
         "security": [
           {
@@ -4001,7 +4318,6 @@
           "admin-webhooks"
         ],
         "summary": "Register Webhook",
-        "description": "Register a webhook. The signing secret is returned only on creation.",
         "operationId": "register_webhook_admin_api_v1_webhooks_post",
         "security": [
           {
@@ -4042,13 +4358,121 @@
         }
       }
     },
+    "/admin/api/v1/webhooks/deliveries": {
+      "get": {
+        "tags": [
+          "admin-webhooks"
+        ],
+        "summary": "List Webhook Deliveries",
+        "operationId": "list_webhook_deliveries_admin_api_v1_webhooks_deliveries_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedWebhookDeliveryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/webhooks/deliveries/{delivery_id}/replay": {
+      "post": {
+        "tags": [
+          "admin-webhooks"
+        ],
+        "summary": "Replay Webhook Delivery",
+        "operationId": "replay_webhook_delivery_admin_api_v1_webhooks_deliveries__delivery_id__replay_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Delivery Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookDeliveryOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/api/v1/webhooks/{webhook_id}": {
       "get": {
         "tags": [
           "admin-webhooks"
         ],
         "summary": "Get Webhook",
-        "description": "Get a single webhook.",
         "operationId": "get_webhook_admin_api_v1_webhooks__webhook_id__get",
         "security": [
           {
@@ -4095,7 +4519,6 @@
           "admin-webhooks"
         ],
         "summary": "Update Webhook",
-        "description": "Update a webhook.",
         "operationId": "update_webhook_admin_api_v1_webhooks__webhook_id__patch",
         "security": [
           {
@@ -4152,7 +4575,6 @@
           "admin-webhooks"
         ],
         "summary": "Delete Webhook",
-        "description": "Delete a webhook.",
         "operationId": "delete_webhook_admin_api_v1_webhooks__webhook_id__delete",
         "security": [
           {
@@ -4174,6 +4596,54 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/api/v1/webhooks/{webhook_id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "admin-webhooks"
+        ],
+        "summary": "Rotate Webhook Secret",
+        "operationId": "rotate_webhook_secret_admin_api_v1_webhooks__webhook_id__rotate_secret_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Webhook Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretRotationOut"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -4580,6 +5050,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -4704,6 +5206,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -4796,6 +5330,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -4877,6 +5443,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -4970,6 +5568,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -5061,6 +5691,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -5154,6 +5816,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -5245,6 +5939,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -5338,6 +6064,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -5429,6 +6187,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -5522,6 +6312,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -5614,6 +6436,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -5705,6 +6559,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -5821,6 +6707,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -5926,6 +6844,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -6007,6 +6957,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -6110,6 +7092,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -6192,6 +7206,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -6273,6 +7319,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -6366,6 +7444,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -6457,6 +7567,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -6550,6 +7692,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "requestBody": {
@@ -6641,6 +7815,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -6734,6 +7940,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -6815,6 +8053,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -6908,6 +8178,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -6990,6 +8292,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -7069,6 +8403,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -7162,6 +8528,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -7243,6 +8641,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -7336,6 +8766,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -7417,6 +8879,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -7510,6 +9004,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -7591,6 +9117,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -7684,6 +9242,38 @@
               ],
               "title": "X-Device-Signature"
             }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
           }
         ],
         "responses": {
@@ -7693,6 +9283,139 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeviceCommandPullOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/device/api/v1/sync/commands/{command_id}/ack": {
+      "post": {
+        "tags": [
+          "device-sync"
+        ],
+        "summary": "Acknowledge Command",
+        "operationId": "acknowledge_command_device_api_v1_sync_commands__command_id__ack_post",
+        "parameters": [
+          {
+            "name": "command_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Command Id"
+            }
+          },
+          {
+            "name": "X-Device-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Id"
+            }
+          },
+          {
+            "name": "X-Device-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Timestamp"
+            }
+          },
+          {
+            "name": "X-Device-Signature",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceCommandAckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCommandOut"
                 }
               }
             }
@@ -7809,6 +9532,38 @@
                 }
               ],
               "title": "X-Device-Signature"
+            }
+          },
+          {
+            "name": "X-Device-Nonce",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Nonce"
+            }
+          },
+          {
+            "name": "X-Device-Signature-Version",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Device-Signature-Version"
             }
           }
         ],
@@ -10414,116 +12169,6 @@
         }
       }
     },
-    "/public/api/v1/reports/top-products": {
-      "get": {
-        "tags": [
-          "public-reports"
-        ],
-        "summary": "Top Products Report",
-        "description": "Top products by revenue.\n\nTODO: requires an order/sales-line model not yet in scope; returns empty.",
-        "operationId": "top_products_report_public_api_v1_reports_top_products_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "X-API-Key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TopProductsReportOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/public/api/v1/reports/device-usage": {
-      "get": {
-        "tags": [
-          "public-reports"
-        ],
-        "summary": "Device Usage Report",
-        "description": "Per-device usage breakdown.\n\nTODO: requires sales-line attribution not yet in scope; returns empty.",
-        "operationId": "device_usage_report_public_api_v1_reports_device_usage_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "X-API-Key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Api-Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeviceUsageOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/public/api/v1/reports/balances": {
       "get": {
         "tags": [
@@ -11735,6 +13380,36 @@
         "title": "DeviceChargeRequest",
         "description": "Debit a card's wallet (money out). Idempotent and replay-safe."
       },
+      "DeviceCommandAckRequest": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "acked",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DeviceCommandAckRequest"
+      },
       "DeviceCommandOut": {
         "properties": {
           "id": {
@@ -11760,6 +13435,22 @@
             ],
             "title": "Payload"
           },
+          "lease_expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lease Expires At"
+          },
+          "delivery_attempts": {
+            "type": "integer",
+            "title": "Delivery Attempts"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -11771,6 +13462,7 @@
           "id",
           "type",
           "status",
+          "delivery_attempts",
           "created_at"
         ],
         "title": "DeviceCommandOut"
@@ -11795,6 +13487,7 @@
         "type": "string",
         "enum": [
           "pending",
+          "leased",
           "delivered",
           "acked",
           "failed"
@@ -11923,6 +13616,31 @@
           "name"
         ],
         "title": "DeviceCreate"
+      },
+      "DeviceCredentialOut": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          },
+          "hmac_secret": {
+            "type": "string",
+            "title": "Hmac Secret",
+            "description": "Rotated device secret shown only once"
+          },
+          "hmac_secret_version": {
+            "type": "integer",
+            "title": "Hmac Secret Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_id",
+          "hmac_secret",
+          "hmac_secret_version"
+        ],
+        "title": "DeviceCredentialOut"
       },
       "DeviceEventLevel": {
         "type": "string",
@@ -12331,16 +14049,11 @@
             "default": "credit"
           },
           "expires_in_s": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires In S"
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 30.0,
+            "title": "Expires In S",
+            "default": 900
           }
         },
         "additionalProperties": false,
@@ -12352,6 +14065,76 @@
           "idempotency_key"
         ],
         "title": "DevicePreauthRequest"
+      },
+      "DeviceProvisioningOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "type": {
+            "$ref": "#/components/schemas/DeviceType",
+            "default": "reader"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DeviceStatus"
+          },
+          "hmac_secret": {
+            "type": "string",
+            "title": "Hmac Secret",
+            "description": "Device secret shown only once"
+          },
+          "hmac_secret_version": {
+            "type": "integer",
+            "title": "Hmac Secret Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "id",
+          "tenant_id",
+          "status",
+          "hmac_secret",
+          "hmac_secret_version"
+        ],
+        "title": "DeviceProvisioningOut"
       },
       "DeviceRefreshRequest": {
         "properties": {
@@ -12431,49 +14214,21 @@
         ],
         "title": "DeviceReloadOut"
       },
-      "DeviceReportOut": {
+      "DeviceResetRequest": {
         "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/DeviceReportRow"
-            },
-            "type": "array",
-            "title": "Rows"
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "rows"
+          "reason"
         ],
-        "title": "DeviceReportOut"
-      },
-      "DeviceReportRow": {
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "title": "Device Id"
-          },
-          "device_name": {
-            "type": "string",
-            "title": "Device Name"
-          },
-          "transaction_count": {
-            "type": "integer",
-            "title": "Transaction Count"
-          },
-          "total_amount_minor": {
-            "type": "integer",
-            "title": "Total Amount Minor"
-          }
-        },
-        "type": "object",
-        "required": [
-          "device_id",
-          "device_name",
-          "transaction_count",
-          "total_amount_minor"
-        ],
-        "title": "DeviceReportRow"
+        "title": "DeviceResetRequest"
       },
       "DeviceSettingsOut": {
         "properties": {
@@ -12660,50 +14415,6 @@
         "additionalProperties": false,
         "type": "object",
         "title": "DeviceUpdate"
-      },
-      "DeviceUsageOut": {
-        "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/DeviceUsageRow"
-            },
-            "type": "array",
-            "title": "Rows"
-          }
-        },
-        "type": "object",
-        "required": [
-          "rows"
-        ],
-        "title": "DeviceUsageOut"
-      },
-      "DeviceUsageRow": {
-        "properties": {
-          "device_id": {
-            "type": "string",
-            "title": "Device Id"
-          },
-          "device_name": {
-            "type": "string",
-            "title": "Device Name"
-          },
-          "transaction_count": {
-            "type": "integer",
-            "title": "Transaction Count"
-          },
-          "total_amount_minor": {
-            "type": "integer",
-            "title": "Total Amount Minor"
-          }
-        },
-        "type": "object",
-        "required": [
-          "device_id",
-          "device_name",
-          "transaction_count",
-          "total_amount_minor"
-        ],
-        "title": "DeviceUsageRow"
       },
       "DeviceVoidRequest": {
         "properties": {
@@ -13112,6 +14823,20 @@
           "version": {
             "type": "string",
             "title": "Version"
+          },
+          "components": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Components"
           }
         },
         "type": "object",
@@ -13866,9 +15591,33 @@
       },
       "OfflineConfigOut": {
         "properties": {
-          "max_offline_amount_minor": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "uid_risk_accepted": {
+            "type": "boolean",
+            "title": "Uid Risk Accepted"
+          },
+          "max_transaction_minor": {
             "type": "integer",
-            "title": "Max Offline Amount Minor"
+            "title": "Max Transaction Minor"
+          },
+          "max_card_total_minor": {
+            "type": "integer",
+            "title": "Max Card Total Minor"
+          },
+          "max_device_total_minor": {
+            "type": "integer",
+            "title": "Max Device Total Minor"
+          },
+          "max_outage_total_minor": {
+            "type": "integer",
+            "title": "Max Outage Total Minor"
+          },
+          "max_queue_age_seconds": {
+            "type": "integer",
+            "title": "Max Queue Age Seconds"
           },
           "max_queue_size": {
             "type": "integer",
@@ -13885,7 +15634,13 @@
         },
         "type": "object",
         "required": [
-          "max_offline_amount_minor",
+          "enabled",
+          "uid_risk_accepted",
+          "max_transaction_minor",
+          "max_card_total_minor",
+          "max_device_total_minor",
+          "max_outage_total_minor",
+          "max_queue_age_seconds",
           "max_queue_size",
           "sync_interval_s",
           "currency"
@@ -13933,6 +15688,146 @@
         ],
         "title": "OfflineItemResult"
       },
+      "OfflinePolicyOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "uid_risk_accepted": {
+            "type": "boolean",
+            "title": "Uid Risk Accepted"
+          },
+          "max_transaction_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Transaction Minor",
+            "default": 0
+          },
+          "max_card_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Card Total Minor",
+            "default": 0
+          },
+          "max_device_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Device Total Minor",
+            "default": 0
+          },
+          "max_outage_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Outage Total Minor",
+            "default": 0
+          },
+          "max_queue_age_seconds": {
+            "type": "integer",
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Max Queue Age Seconds",
+            "default": 3600
+          },
+          "max_queue_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Max Queue Size",
+            "default": 100
+          },
+          "sync_interval_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 5.0,
+            "title": "Sync Interval Seconds",
+            "default": 60
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "uid_risk_accepted",
+          "id",
+          "tenant_id"
+        ],
+        "title": "OfflinePolicyOut"
+      },
+      "OfflinePolicyUpdate": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "uid_risk_accepted": {
+            "type": "boolean",
+            "title": "Uid Risk Accepted"
+          },
+          "max_transaction_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Transaction Minor",
+            "default": 0
+          },
+          "max_card_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Card Total Minor",
+            "default": 0
+          },
+          "max_device_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Device Total Minor",
+            "default": 0
+          },
+          "max_outage_total_minor": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Max Outage Total Minor",
+            "default": 0
+          },
+          "max_queue_age_seconds": {
+            "type": "integer",
+            "maximum": 604800.0,
+            "minimum": 60.0,
+            "title": "Max Queue Age Seconds",
+            "default": 3600
+          },
+          "max_queue_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Max Queue Size",
+            "default": 100
+          },
+          "sync_interval_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 5.0,
+            "title": "Sync Interval Seconds",
+            "default": 60
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "uid_risk_accepted"
+        ],
+        "title": "OfflinePolicyUpdate"
+      },
       "OfflineQueueItem": {
         "properties": {
           "idempotency_key": {
@@ -13961,6 +15856,16 @@
             "minLength": 3,
             "title": "Currency"
           },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "sequence_number": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Sequence Number"
+          },
           "description": {
             "anyOf": [
               {
@@ -13980,7 +15885,9 @@
           "idempotency_key",
           "card_uid",
           "amount_minor",
-          "currency"
+          "currency",
+          "occurred_at",
+          "sequence_number"
         ],
         "title": "OfflineQueueItem",
         "description": "A single queued offline operation uploaded on reconnect."
@@ -14003,6 +15910,102 @@
         ],
         "title": "OfflineQueueUploadRequest"
       },
+      "OfflineReviewDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "pattern": "^(accept|reject)$",
+            "title": "Decision"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision",
+          "reason"
+        ],
+        "title": "OfflineReviewDecision"
+      },
+      "OfflineReviewItemOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Idempotency Key"
+          },
+          "card_uid": {
+            "type": "string",
+            "title": "Card Uid"
+          },
+          "amount_minor": {
+            "type": "integer",
+            "title": "Amount Minor"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "sequence_number": {
+            "type": "integer",
+            "title": "Sequence Number"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OfflineTransactionStatus"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "applied_transaction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied Transaction Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "device_id",
+          "idempotency_key",
+          "card_uid",
+          "amount_minor",
+          "occurred_at",
+          "sequence_number",
+          "status"
+        ],
+        "title": "OfflineReviewItemOut"
+      },
       "OfflineSyncResultOut": {
         "properties": {
           "accepted": {
@@ -14017,6 +16020,10 @@
             "type": "integer",
             "title": "Rejected"
           },
+          "manual_review": {
+            "type": "integer",
+            "title": "Manual Review"
+          },
           "results": {
             "items": {
               "$ref": "#/components/schemas/OfflineItemResult"
@@ -14030,6 +16037,7 @@
           "accepted",
           "duplicates",
           "rejected",
+          "manual_review",
           "results"
         ],
         "title": "OfflineSyncResultOut"
@@ -14039,7 +16047,8 @@
         "enum": [
           "pending",
           "applied",
-          "rejected"
+          "rejected",
+          "manual_review"
         ],
         "title": "OfflineTransactionStatus"
       },
@@ -14933,6 +16942,37 @@
           "items"
         ],
         "title": "PaginatedWalletOut"
+      },
+      "PaginatedWebhookDeliveryOut": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WebhookDeliveryOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "total",
+          "pages",
+          "items"
+        ],
+        "title": "PaginatedWebhookDeliveryOut"
       },
       "PaginatedWebhookOut": {
         "properties": {
@@ -15999,6 +18039,111 @@
         "type": "object",
         "title": "PublicWebhookUpdate"
       },
+      "ReconciliationIssue": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Resource Id"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "expected_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Minor"
+          },
+          "actual_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Minor"
+          },
+          "difference_minor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference Minor"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "resource_id",
+          "detail"
+        ],
+        "title": "ReconciliationIssue"
+      },
+      "ReconciliationReportOut": {
+        "properties": {
+          "healthy": {
+            "type": "boolean",
+            "title": "Healthy"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "checked_transactions": {
+            "type": "integer",
+            "title": "Checked Transactions"
+          },
+          "checked_wallets": {
+            "type": "integer",
+            "title": "Checked Wallets"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "healthy",
+          "generated_at",
+          "checked_transactions",
+          "checked_wallets",
+          "issues"
+        ],
+        "title": "ReconciliationReportOut"
+      },
       "RefreshRequest": {
         "properties": {
           "refresh_token": {
@@ -16538,66 +18683,6 @@
         ],
         "title": "TopCustomersOut"
       },
-      "TopProductRow": {
-        "properties": {
-          "product_id": {
-            "type": "string",
-            "title": "Product Id"
-          },
-          "product_name": {
-            "type": "string",
-            "title": "Product Name"
-          },
-          "units_sold": {
-            "type": "integer",
-            "title": "Units Sold"
-          },
-          "revenue_minor": {
-            "type": "integer",
-            "title": "Revenue Minor"
-          }
-        },
-        "type": "object",
-        "required": [
-          "product_id",
-          "product_name",
-          "units_sold",
-          "revenue_minor"
-        ],
-        "title": "TopProductRow"
-      },
-      "TopProductsOut": {
-        "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/TopProductRow"
-            },
-            "type": "array",
-            "title": "Rows"
-          }
-        },
-        "type": "object",
-        "required": [
-          "rows"
-        ],
-        "title": "TopProductsOut"
-      },
-      "TopProductsReportOut": {
-        "properties": {
-          "rows": {
-            "items": {
-              "$ref": "#/components/schemas/TopProductRow"
-            },
-            "type": "array",
-            "title": "Rows"
-          }
-        },
-        "type": "object",
-        "required": [
-          "rows"
-        ],
-        "title": "TopProductsReportOut"
-      },
       "TransactionExportOut": {
         "properties": {
           "format": {
@@ -16769,7 +18854,8 @@
           "transfer",
           "preauth",
           "capture",
-          "void"
+          "void",
+          "adjustment"
         ],
         "title": "TransactionType"
       },
@@ -17321,6 +19407,121 @@
         ],
         "title": "WebhookCreateResult"
       },
+      "WebhookDeliveryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "webhook_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Webhook Id"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WebhookDeliveryStatus"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "response_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Code"
+          },
+          "response_body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Body"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "next_retry_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Retry At"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "webhook_id",
+          "event_type",
+          "payload",
+          "status",
+          "attempts",
+          "created_at"
+        ],
+        "title": "WebhookDeliveryOut"
+      },
+      "WebhookDeliveryStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "processing",
+          "retrying",
+          "success",
+          "failed",
+          "dead"
+        ],
+        "title": "WebhookDeliveryStatus"
+      },
       "WebhookEventTypesOut": {
         "properties": {
           "event_types": {
@@ -17375,6 +19576,31 @@
           "active"
         ],
         "title": "WebhookOut"
+      },
+      "WebhookSecretRotationOut": {
+        "properties": {
+          "webhook_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Webhook Id"
+          },
+          "secret": {
+            "type": "string",
+            "title": "Secret"
+          },
+          "rotated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Rotated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "webhook_id",
+          "secret",
+          "rotated_at"
+        ],
+        "title": "WebhookSecretRotationOut"
       },
       "WebhookUpdate": {
         "properties": {
