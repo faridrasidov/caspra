@@ -40,7 +40,7 @@ async def list_customers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list customers: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -58,7 +58,7 @@ async def create_customer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create customer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -76,7 +76,7 @@ async def import_customers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to import customers: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -94,7 +94,7 @@ async def get_customer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch customer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -115,7 +115,7 @@ async def update_customer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update customer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -133,7 +133,7 @@ async def delete_customer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete customer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -161,5 +161,5 @@ async def get_customer_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch balances: {e}",
+            detail="An unexpected error occurred",
         ) from e

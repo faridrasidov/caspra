@@ -40,5 +40,5 @@ async def get_schema(request: Request) -> dict[str, Any]:
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build public schema: {e}",
+            detail="An unexpected error occurred",
         ) from e

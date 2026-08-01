@@ -36,7 +36,7 @@ async def list_products(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list products: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -54,7 +54,7 @@ async def create_product(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create product: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -72,7 +72,7 @@ async def get_product(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch product: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -93,7 +93,7 @@ async def update_product(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update product: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -111,5 +111,5 @@ async def delete_product(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete product: {e}",
+            detail="An unexpected error occurred",
         ) from e

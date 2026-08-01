@@ -44,7 +44,7 @@ async def list_cards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list cards: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -62,7 +62,7 @@ async def get_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -94,7 +94,7 @@ async def get_card_balances(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card balances: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -124,7 +124,7 @@ async def get_card_customer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card customer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -143,7 +143,7 @@ async def link_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to link card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -161,5 +161,5 @@ async def unlink_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to unlink card: {e}",
+            detail="An unexpected error occurred",
         ) from e

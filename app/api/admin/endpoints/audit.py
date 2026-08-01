@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.audit import AuditLogOut, PaginatedAuditLogOut
 from app.services.audit import AuditService
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/audit", tags=["admin-audit"])
 @router.get("", response_model=PaginatedAuditLogOut)
 async def list_audit_logs(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.AUDIT_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedAuditLogOut:
@@ -31,7 +32,7 @@ async def list_audit_logs(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list audit logs: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -39,7 +40,7 @@ async def list_audit_logs(
 async def get_audit_log(
     log_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.AUDIT_READ))],
 ) -> AuditLogOut:
     """Get a single audit log entry."""
     try:
@@ -49,5 +50,5 @@ async def get_audit_log(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch audit log: {e}",
+            detail="An unexpected error occurred",
         ) from e

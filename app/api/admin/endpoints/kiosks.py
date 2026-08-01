@@ -37,7 +37,7 @@ async def list_kiosks(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list kiosks: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -55,7 +55,7 @@ async def create_kiosk(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create kiosk: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -73,7 +73,7 @@ async def get_kiosk(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch kiosk: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -92,7 +92,7 @@ async def update_kiosk(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update kiosk: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -113,5 +113,5 @@ async def list_kiosk_logs(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list kiosk logs: {e}",
+            detail="An unexpected error occurred",
         ) from e

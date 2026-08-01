@@ -31,7 +31,7 @@ async def get_org(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch organization: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -48,5 +48,5 @@ async def get_org_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch org stats: {e}",
+            detail="An unexpected error occurred",
         ) from e

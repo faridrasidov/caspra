@@ -38,7 +38,7 @@ async def list_cards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list cards: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -56,7 +56,7 @@ async def register_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -74,7 +74,7 @@ async def get_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -93,7 +93,7 @@ async def assign_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to assign card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -111,7 +111,7 @@ async def unassign_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to unassign card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -131,7 +131,7 @@ async def block_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to block card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -151,7 +151,7 @@ async def unblock_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to unblock card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -169,7 +169,7 @@ async def reset_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to reset card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -188,5 +188,5 @@ async def replace_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to replace card: {e}",
+            detail="An unexpected error occurred",
         ) from e

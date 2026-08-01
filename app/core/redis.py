@@ -12,6 +12,8 @@ async def init_redis() -> Redis | None:
     if settings.testing or settings.redis_url == "memory://":
         return None
     _redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
+    if settings.environment == "production":
+        await _redis_client.ping()
     return _redis_client
 
 

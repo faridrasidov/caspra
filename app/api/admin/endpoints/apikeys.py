@@ -36,7 +36,7 @@ async def list_api_keys(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list API keys: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -59,7 +59,7 @@ async def create_api_key(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create API key: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -77,7 +77,7 @@ async def revoke_api_key(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to revoke API key: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -100,5 +100,5 @@ async def regenerate_api_key(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to regenerate API key: {e}",
+            detail="An unexpected error occurred",
         ) from e

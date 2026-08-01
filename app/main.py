@@ -10,7 +10,8 @@ from app.api.device.router import device_router
 from app.api.docs import register_docs
 from app.api.public.router import public_router
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import settings, validate_runtime_settings
+from app.core.http_errors import register_http_controls
 from app.core.logging import configure_logging
 from app.core.redis import close_redis, init_redis
 from app.db.session import create_engine, create_session_factory
@@ -19,6 +20,7 @@ from app.db.session import create_engine, create_session_factory
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(settings.debug)
+    validate_runtime_settings(settings)
     engine = create_engine(settings.database_url, echo=settings.debug)
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
@@ -34,6 +36,7 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         lifespan=lifespan,
     )
+    register_http_controls(app)
 
     app.add_middleware(
         CORSMiddleware,

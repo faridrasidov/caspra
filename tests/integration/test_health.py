@@ -14,3 +14,13 @@ class TestHealth:
         data = response.json()
         assert data["status"] == "ok"
         assert "version" in data
+
+    async def test_readiness_records_dependency_metrics(self, client):
+        readiness = await client.get("/api/v1/health/ready")
+        assert readiness.status_code == 200
+        assert readiness.json()["components"]["database"] == "ok"
+
+        metrics = await client.get("/api/v1/metrics")
+        assert metrics.status_code == 200
+        assert "# TYPE caspra_database_latency_seconds summary" in metrics.text
+        assert "caspra_database_latency_seconds_count " in metrics.text

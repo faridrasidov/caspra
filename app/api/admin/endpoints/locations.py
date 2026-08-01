@@ -36,7 +36,7 @@ async def list_locations(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list locations: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -54,7 +54,7 @@ async def create_location(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create location: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -72,7 +72,7 @@ async def get_location(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch location: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -93,7 +93,7 @@ async def update_location(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update location: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -111,5 +111,5 @@ async def delete_location(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete location: {e}",
+            detail="An unexpected error occurred",
         ) from e

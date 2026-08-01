@@ -34,7 +34,7 @@ async def get_organization(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch organization: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -52,7 +52,7 @@ async def update_organization(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update organization: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -69,7 +69,7 @@ async def get_org_settings(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch settings: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -87,7 +87,7 @@ async def update_org_settings(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update settings: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -107,7 +107,7 @@ async def list_users(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list users: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -125,7 +125,7 @@ async def create_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -143,7 +143,7 @@ async def get_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch user: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -164,7 +164,7 @@ async def update_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update user: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -182,5 +182,5 @@ async def delete_user(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete user: {e}",
+            detail="An unexpected error occurred",
         ) from e

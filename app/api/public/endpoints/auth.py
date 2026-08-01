@@ -26,7 +26,7 @@ async def test_api_key(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to validate API key: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -42,5 +42,5 @@ async def list_scopes(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list scopes: {e}",
+            detail="An unexpected error occurred",
         ) from e

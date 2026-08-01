@@ -41,7 +41,7 @@ async def list_devices(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list devices: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -59,7 +59,7 @@ async def get_device(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch device: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -77,7 +77,7 @@ async def get_device_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch device status: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -101,5 +101,5 @@ async def get_device_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch device transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e

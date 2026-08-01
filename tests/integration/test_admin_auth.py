@@ -35,6 +35,8 @@ class TestAdminLogin:
         tokens = login.json()
         assert "access_token" in tokens
         assert "refresh_token" in tokens
+        assert "caspra_refresh=" in login.headers["set-cookie"]
+        assert "HttpOnly" in login.headers["set-cookie"]
 
         headers = {"Authorization": f"Bearer {tokens['access_token']}"}
         me = await client.get(f"{BASE}/auth/me", headers=headers)
@@ -55,5 +57,34 @@ class TestAdminLogin:
         )
         refresh_token = login.json()["refresh_token"]
         refreshed = await client.post(f"{BASE}/auth/refresh", json={"refresh_token": refresh_token})
+        assert refreshed.status_code == 200
+        assert refreshed.json()["access_token"]
+
+    async def test_reused_refresh_token_revokes_its_session_family(self, client, seeded_admin):
+        login = await client.post(
+            f"{BASE}/auth/login",
+            json={"email": "admin@primary.test", "password": "adminpassword"},
+        )
+        original = login.json()["refresh_token"]
+        refreshed = await client.post(f"{BASE}/auth/refresh", json={"refresh_token": original})
+        replacement = refreshed.json()["refresh_token"]
+
+        reuse = await client.post(f"{BASE}/auth/refresh", json={"refresh_token": original})
+        assert reuse.status_code == 401
+        assert reuse.json()["code"] == "unauthorized"
+
+        revoked_replacement = await client.post(
+            f"{BASE}/auth/refresh", json={"refresh_token": replacement}
+        )
+        assert revoked_replacement.status_code == 401
+
+    async def test_refresh_cookie_can_be_used_without_request_body(self, client, seeded_admin):
+        login = await client.post(
+            f"{BASE}/auth/login",
+            json={"email": "admin@primary.test", "password": "adminpassword"},
+        )
+        assert login.status_code == 200
+
+        refreshed = await client.post(f"{BASE}/auth/refresh")
         assert refreshed.status_code == 200
         assert refreshed.json()["access_token"]

@@ -35,7 +35,7 @@ async def list_notifications(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list notifications: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -53,5 +53,5 @@ async def mark_all_read(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to mark notifications read: {e}",
+            detail="An unexpected error occurred",
         ) from e

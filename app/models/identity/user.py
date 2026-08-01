@@ -94,8 +94,19 @@ class RefreshToken(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(VARCHAR(255), nullable=False, unique=True, index=True)
+    family_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    replaced_by_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "refresh_tokens.id",
+            name="fk_refresh_tokens_replaced_by_id_refresh_tokens",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ApiKey(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):

@@ -1,11 +1,14 @@
 # app/core/security.py
 
+import base64
 from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
+import secrets
 from typing import Any
 
 import bcrypt
+from cryptography.fernet import Fernet, InvalidToken
 from jose import JWTError, jwt
 
 from app.core.config import settings
@@ -53,6 +56,66 @@ def verify_device_signature(
         message,
         hashlib.sha256,
     ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
+def _device_secret_cipher() -> Fernet:
+    digest = hashlib.sha256(settings.device_secret_encryption_key.encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def generate_device_secret() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def encrypt_device_secret(secret: str) -> str:
+    return _device_secret_cipher().encrypt(secret.encode()).decode()
+
+
+def decrypt_device_secret(encrypted_secret: str) -> str:
+    try:
+        return _device_secret_cipher().decrypt(encrypted_secret.encode()).decode()
+    except InvalidToken as exc:
+        raise ValueError("Unable to decrypt device secret") from exc
+
+
+def build_device_signature_v2(
+    *,
+    secret: str,
+    method: str,
+    path: str,
+    device_id: str,
+    timestamp: str,
+    nonce: str,
+    body: bytes,
+) -> str:
+    body_hash = hashlib.sha256(body).hexdigest()
+    canonical = (
+        f"{method.upper()}\n{path}\n{device_id}\n{timestamp}\n{nonce}\n{body_hash}"
+    ).encode()
+    return hmac.new(secret.encode(), canonical, hashlib.sha256).hexdigest()
+
+
+def verify_device_signature_v2(
+    *,
+    secret: str,
+    method: str,
+    path: str,
+    device_id: str,
+    timestamp: str,
+    nonce: str,
+    body: bytes,
+    signature: str,
+) -> bool:
+    expected = build_device_signature_v2(
+        secret=secret,
+        method=method,
+        path=path,
+        device_id=device_id,
+        timestamp=timestamp,
+        nonce=nonce,
+        body=body,
+    )
     return hmac.compare_digest(expected, signature)
 
 
