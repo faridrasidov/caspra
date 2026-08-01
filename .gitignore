@@ -23,6 +23,7 @@ htmlcov/
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # Archives (like the project.tar you uploaded)
 *.tar
@@ -34,6 +35,13 @@ htmlcov/
 *.sqlite3
 *.db
 _alembic_tmp.db
+web/node_modules/
+web/dist/
+web/playwright-report/
+web/test-results/
+web/*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
 
 # OS generated files
 .DS_Store
