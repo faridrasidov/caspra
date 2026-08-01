@@ -9,6 +9,7 @@ from sqlalchemy import (
     VARCHAR,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     UniqueConstraint,
@@ -32,6 +33,7 @@ class OfflineTransactionStatus(enum.StrEnum):
     PENDING = "pending"
     APPLIED = "applied"
     REJECTED = "rejected"
+    MANUAL_REVIEW = "manual_review"
 
 
 class Hold(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
@@ -40,6 +42,7 @@ class Hold(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     __tablename__ = "holds"
     __table_args__ = (
         UniqueConstraint("tenant_id", "idempotency_key", name="uq_holds_tenant_idempotency_key"),
+        CheckConstraint("amount_minor > 0", name="ck_holds_positive_amount"),
     )
 
     wallet_id: Mapped[PyUUID] = mapped_column(
@@ -66,6 +69,7 @@ class Hold(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         VARCHAR(20), nullable=False, default=HoldStatus.PREAUTH.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     capture_transaction_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -106,6 +110,16 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
         UniqueConstraint(
             "tenant_id", "idempotency_key", name="uq_offline_transactions_tenant_idempotency_key"
         ),
+        UniqueConstraint(
+            "tenant_id",
+            "device_id",
+            "sequence_number",
+            name="uq_offline_transactions_tenant_device_sequence",
+        ),
+        CheckConstraint(
+            "sequence_number > 0 AND amount_minor > 0",
+            name="ck_offline_transactions_positive_values",
+        ),
     )
 
     device_id: Mapped[PyUUID] = mapped_column(
@@ -117,6 +131,11 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
         index=True,
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    card_uid: Mapped[str] = mapped_column(VARCHAR(120), nullable=False)
+    amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[OfflineTransactionStatus] = mapped_column(
         VARCHAR(20), nullable=False, default=OfflineTransactionStatus.PENDING.value
@@ -132,3 +151,13 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
         index=True,
     )
     error: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by_user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "users.id",
+            name="fk_offline_transactions_reviewed_by_user_id_users",
+            ondelete="SET NULL",
+        ),
+        nullable=True,
+    )

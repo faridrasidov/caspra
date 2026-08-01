@@ -11,9 +11,7 @@ from app.models.identity.user import User
 from app.schemas.report import (
     CustomerActivityOut,
     DailyReportOut,
-    DeviceReportOut,
     ReportExportOut,
-    TopProductsOut,
 )
 from app.services.report import ReportService
 
@@ -33,41 +31,7 @@ async def daily_report(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build daily report: {e}",
-        ) from e
-
-
-@router.get("/devices", response_model=DeviceReportOut)
-async def devices_report(
-    db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
-) -> DeviceReportOut:
-    """Per-device activity report (TODO: needs sales-line attribution)."""
-    try:
-        return await ReportService().devices(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build devices report: {e}",
-        ) from e
-
-
-@router.get("/top-products", response_model=TopProductsOut)
-async def top_products_report(
-    db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
-) -> TopProductsOut:
-    """Top products by revenue (TODO: needs order/line-item model)."""
-    try:
-        return await ReportService().top_products(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build top-products report: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -85,7 +49,7 @@ async def customer_activity_report(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to build customer-activity report: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -104,5 +68,5 @@ async def export_report(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export report: {e}",
+            detail="An unexpected error occurred",
         ) from e

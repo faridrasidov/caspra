@@ -36,7 +36,7 @@ async def charge(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to charge: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -54,7 +54,7 @@ async def refund(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refund: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -72,7 +72,7 @@ async def preauth(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to pre-authorize: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -90,7 +90,7 @@ async def capture(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to capture: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -108,5 +108,5 @@ async def void(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to void hold: {e}",
+            detail="An unexpected error occurred",
         ) from e

@@ -36,7 +36,7 @@ async def list_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -56,7 +56,7 @@ async def list_pending(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list pending transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -74,7 +74,7 @@ async def upload_offline(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload offline queue: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -93,5 +93,5 @@ async def transaction_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch transaction: {e}",
+            detail="An unexpected error occurred",
         ) from e

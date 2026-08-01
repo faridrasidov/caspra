@@ -57,7 +57,7 @@ async def list_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -85,7 +85,7 @@ async def topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to top up wallet: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -115,7 +115,7 @@ async def refund_transaction(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refund transaction: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -133,5 +133,5 @@ async def get_transaction(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch transaction: {e}",
+            detail="An unexpected error occurred",
         ) from e

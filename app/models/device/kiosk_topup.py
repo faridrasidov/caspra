@@ -68,6 +68,7 @@ class KioskTopupSession(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         VARCHAR(20), nullable=False, default=KioskTopupStatus.REQUESTED.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
     transaction_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey(

@@ -3,7 +3,7 @@
 import enum
 from uuid import UUID as PyUUID
 
-from sqlalchemy import VARCHAR, BigInteger, ForeignKey, UniqueConstraint
+from sqlalchemy import VARCHAR, BigInteger, CheckConstraint, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,6 +37,7 @@ class TransactionType(enum.StrEnum):
     PREAUTH = "preauth"
     CAPTURE = "capture"
     VOID = "void"
+    ADJUSTMENT = "adjustment"
 
 
 class TransactionStatus(enum.StrEnum):
@@ -49,6 +50,18 @@ class TransactionStatus(enum.StrEnum):
 class LedgerDirection(enum.StrEnum):
     DEBIT = "debit"
     CREDIT = "credit"
+
+
+class LedgerAccountType(enum.StrEnum):
+    WALLET_LIABILITY = "wallet_liability"
+    CASH_CLEARING = "cash_clearing"
+    MERCHANT_REVENUE = "merchant_revenue"
+    ADJUSTMENT = "adjustment"
+
+
+class LedgerAccountStatus(enum.StrEnum):
+    ACTIVE = "active"
+    CLOSED = "closed"
 
 
 class RefundStatus(enum.StrEnum):
@@ -78,6 +91,13 @@ class Wallet(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     """A stored-value wallet. Balance is integer minor units, never float."""
 
     __tablename__ = "wallets"
+    __table_args__ = (
+        CheckConstraint("balance_minor >= 0", name="ck_wallets_non_negative_balance"),
+        CheckConstraint(
+            "length(currency) = 3 AND currency = upper(currency)",
+            name="ck_wallets_currency_format",
+        ),
+    )
 
     customer_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
@@ -95,6 +115,42 @@ class Wallet(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
 
 
+class LedgerAccount(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
+    """An accounting account used by immutable, balanced ledger entries."""
+
+    __tablename__ = "ledger_accounts"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "code",
+            "currency",
+            name="uq_ledger_accounts_tenant_code_currency",
+        ),
+        UniqueConstraint("wallet_id", name="uq_ledger_accounts_wallet_id"),
+        CheckConstraint(
+            "length(currency) = 3 AND currency = upper(currency)",
+            name="ck_ledger_accounts_currency_format",
+        ),
+    )
+
+    code: Mapped[str] = mapped_column(VARCHAR(160), nullable=False)
+    type: Mapped[LedgerAccountType] = mapped_column(VARCHAR(40), nullable=False)
+    currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
+    status: Mapped[LedgerAccountStatus] = mapped_column(
+        VARCHAR(20), nullable=False, default=LedgerAccountStatus.ACTIVE.value
+    )
+    wallet_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "wallets.id",
+            name="fk_ledger_accounts_wallet_id_wallets",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+        index=True,
+    )
+
+
 class Transaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     """A logical value movement. Idempotent per tenant via idempotency_key."""
 
@@ -103,9 +159,15 @@ class Transaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         UniqueConstraint(
             "tenant_id", "idempotency_key", name="uq_transactions_tenant_idempotency_key"
         ),
+        CheckConstraint("amount_minor > 0", name="ck_transactions_positive_amount"),
+        CheckConstraint(
+            "length(currency) = 3 AND currency = upper(currency)",
+            name="ck_transactions_currency_format",
+        ),
     )
 
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
     type: Mapped[TransactionType] = mapped_column(VARCHAR(20), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
@@ -139,21 +201,42 @@ class LedgerEntry(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     """Append-only double-entry row. Never updated or deleted once posted."""
 
     __tablename__ = "ledger_entries"
+    __table_args__ = (
+        CheckConstraint("amount_minor > 0", name="ck_ledger_entries_positive_amount"),
+        CheckConstraint(
+            "length(currency) = 3 AND currency = upper(currency)",
+            name="ck_ledger_entries_currency_format",
+        ),
+    )
 
     transaction_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey(
             "transactions.id",
             name="fk_ledger_entries_transaction_id_transactions",
-            ondelete="CASCADE",
+            ondelete="RESTRICT",
         ),
         nullable=False,
         index=True,
     )
-    wallet_id: Mapped[PyUUID] = mapped_column(
+    account_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("wallets.id", name="fk_ledger_entries_wallet_id_wallets", ondelete="CASCADE"),
+        ForeignKey(
+            "ledger_accounts.id",
+            name="fk_ledger_entries_account_id_ledger_accounts",
+            ondelete="RESTRICT",
+        ),
         nullable=False,
+        index=True,
+    )
+    wallet_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "wallets.id",
+            name="fk_ledger_entries_wallet_id_wallets",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
         index=True,
     )
     direction: Mapped[LedgerDirection] = mapped_column(VARCHAR(10), nullable=False)
@@ -165,6 +248,7 @@ class Refund(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     """A refund of a previously posted transaction (via compensating entries)."""
 
     __tablename__ = "refunds"
+    __table_args__ = (CheckConstraint("amount_minor > 0", name="ck_refunds_positive_amount"),)
 
     original_transaction_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
@@ -198,6 +282,9 @@ class WalletTransfer(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     """A value transfer between two wallets in the same tenant."""
 
     __tablename__ = "wallet_transfers"
+    __table_args__ = (
+        CheckConstraint("amount_minor > 0", name="ck_wallet_transfers_positive_amount"),
+    )
 
     from_wallet_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),

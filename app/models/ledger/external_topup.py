@@ -3,7 +3,7 @@
 import enum
 from uuid import UUID as PyUUID
 
-from sqlalchemy import VARCHAR, BigInteger, ForeignKey, UniqueConstraint
+from sqlalchemy import VARCHAR, BigInteger, CheckConstraint, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,6 +36,10 @@ class ExternalTopupSession(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Bas
             "tenant_id",
             "idempotency_key",
             name="uq_external_topup_sessions_tenant_idempotency_key",
+        ),
+        CheckConstraint(
+            "amount_minor > 0",
+            name="ck_external_topup_sessions_positive_amount",
         ),
     )
 
@@ -75,6 +79,7 @@ class ExternalTopupSession(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Bas
         VARCHAR(20), nullable=False, default=ExternalTopupStatus.STARTED.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
     external_payment_ref: Mapped[str | None] = mapped_column(
         VARCHAR(200), nullable=True, index=True
     )

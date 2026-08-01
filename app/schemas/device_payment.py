@@ -39,7 +39,7 @@ class DevicePreauthRequest(BaseModel):
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     wallet_type: WalletType = WalletType.CREDIT
-    expires_in_s: int | None = Field(None, ge=0)
+    expires_in_s: int = Field(900, ge=30, le=86400)
 
 
 class DeviceCaptureRequest(BaseModel):

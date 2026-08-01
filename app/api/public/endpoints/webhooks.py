@@ -40,7 +40,7 @@ async def list_event_types(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list event types: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -60,7 +60,7 @@ async def list_webhooks(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list webhooks: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -81,7 +81,7 @@ async def register_webhook(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register webhook: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -99,7 +99,7 @@ async def get_webhook(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch webhook: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -120,7 +120,7 @@ async def update_webhook(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update webhook: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -138,5 +138,5 @@ async def delete_webhook(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete webhook: {e}",
+            detail="An unexpected error occurred",
         ) from e

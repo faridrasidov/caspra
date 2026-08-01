@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import get_current_admin, require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.transaction import TransactionOut
 from app.schemas.wallet import (
@@ -41,7 +42,7 @@ async def list_wallets(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list wallets: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -59,7 +60,7 @@ async def create_wallet(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create wallet: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -67,7 +68,9 @@ async def create_wallet(
 async def transfer(
     payload: WalletTransferRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.WALLETS_ADJUST))
+    ],
 ) -> TransactionOut:
     """Transfer value between two wallets (idempotent, double-entry)."""
     try:
@@ -77,7 +80,7 @@ async def transfer(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to transfer: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -95,7 +98,7 @@ async def get_wallet(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch wallet: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -118,7 +121,7 @@ async def get_balance(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch balance: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -127,7 +130,9 @@ async def topup(
     wallet_id: UUID,
     payload: WalletTopupRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.WALLETS_ADJUST))
+    ],
 ) -> TransactionOut:
     """Credit a wallet (idempotent)."""
     try:
@@ -137,7 +142,7 @@ async def topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to top up wallet: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -146,7 +151,9 @@ async def deduct(
     wallet_id: UUID,
     payload: WalletDeductRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.WALLETS_ADJUST))
+    ],
 ) -> TransactionOut:
     """Debit a wallet (idempotent, balance-checked under lock)."""
     try:
@@ -156,5 +163,5 @@ async def deduct(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to deduct from wallet: {e}",
+            detail="An unexpected error occurred",
         ) from e

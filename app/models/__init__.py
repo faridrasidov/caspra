@@ -42,6 +42,7 @@ from app.models.ledger.hold import (
 )
 from app.models.ledger.wallet import (
     Customer,
+    LedgerAccount,
     LedgerEntry,
     Refund,
     Transaction,
@@ -81,6 +82,7 @@ __all__ = [
     "Kiosk",
     "KioskLog",
     "KioskTopupSession",
+    "LedgerAccount",
     "LedgerEntry",
     "Location",
     "Membership",

@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import get_current_admin, require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.transaction import (
     PaginatedTransactionOut,
@@ -44,7 +45,7 @@ async def list_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -61,7 +62,7 @@ async def get_stats(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to compute stats: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -79,7 +80,7 @@ async def export_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to export transactions: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -99,7 +100,7 @@ async def get_transaction(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch transaction: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -110,7 +111,9 @@ async def refund_transaction(
     transaction_id: UUID,
     payload: RefundRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.TRANSACTIONS_REFUND))
+    ],
 ) -> RefundOut:
     """Refund a debit transaction (idempotent compensating entry)."""
     try:
@@ -127,5 +130,5 @@ async def refund_transaction(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refund transaction: {e}",
+            detail="An unexpected error occurred",
         ) from e

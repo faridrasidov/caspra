@@ -37,7 +37,7 @@ async def start_topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start top-up session: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -56,7 +56,7 @@ async def confirm_topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to confirm top-up session: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -74,7 +74,7 @@ async def cancel_topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cancel top-up session: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -92,5 +92,5 @@ async def get_topup(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch top-up session: {e}",
+            detail="An unexpected error occurred",
         ) from e

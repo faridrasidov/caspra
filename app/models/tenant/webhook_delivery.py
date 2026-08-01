@@ -14,8 +14,11 @@ from app.models.core.mixins import TenantMixin, TimestampMixin, UUIDPrimaryKeyMi
 
 class WebhookDeliveryStatus(enum.StrEnum):
     PENDING = "pending"
+    PROCESSING = "processing"
+    RETRYING = "retrying"
     SUCCESS = "success"
     FAILED = "failed"
+    DEAD = "dead"
 
 
 class WebhookDelivery(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
@@ -41,8 +44,14 @@ class WebhookDelivery(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     event_type: Mapped[str] = mapped_column(VARCHAR(120), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     status: Mapped[WebhookDeliveryStatus] = mapped_column(
-        VARCHAR(20), nullable=False, default=WebhookDeliveryStatus.PENDING.value
+        VARCHAR(20), nullable=False, default=WebhookDeliveryStatus.PENDING.value, index=True
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    response_body: Mapped[str | None] = mapped_column(VARCHAR(2000), nullable=True)
+    error: Mapped[str | None] = mapped_column(VARCHAR(1000), nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -1,19 +1,20 @@
-# app/api/admin/endpoints/webhooks.py
-
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.webhook import (
+    PaginatedWebhookDeliveryOut,
     PaginatedWebhookOut,
     WebhookCreate,
     WebhookCreateResult,
+    WebhookDeliveryOut,
     WebhookOut,
+    WebhookSecretRotationOut,
     WebhookUpdate,
 )
 from app.services.webhook import WebhookService
@@ -24,58 +25,62 @@ router = APIRouter(prefix="/webhooks", tags=["admin-webhooks"])
 @router.get("", response_model=PaginatedWebhookOut)
 async def list_webhooks(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedWebhookOut:
-    """List webhooks for the caller's tenant."""
-    try:
-        result = await WebhookService().list_webhooks(db, current_admin.tenant_id, page, limit)
-        return PaginatedWebhookOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list webhooks: {e}",
-        ) from e
+    result = await WebhookService().list_webhooks(db, current_admin.tenant_id, page, limit)
+    return PaginatedWebhookOut(**result)
 
 
 @router.post("", response_model=WebhookCreateResult, status_code=status.HTTP_201_CREATED)
 async def register_webhook(
     payload: WebhookCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
 ) -> WebhookCreateResult:
-    """Register a webhook. The signing secret is returned only on creation."""
-    try:
-        webhook = await WebhookService().register_webhook(db, current_admin.tenant_id, payload)
-        return WebhookCreateResult.model_validate(webhook)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register webhook: {e}",
-        ) from e
+    webhook = await WebhookService().register_webhook(db, current_admin.tenant_id, payload)
+    return WebhookCreateResult.model_validate(webhook)
+
+
+@router.get("/deliveries", response_model=PaginatedWebhookDeliveryOut)
+async def list_webhook_deliveries(
+    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> PaginatedWebhookDeliveryOut:
+    result = await WebhookService().list_deliveries(db, current_admin.tenant_id, page, limit)
+    return PaginatedWebhookDeliveryOut(**result)
+
+
+@router.post("/deliveries/{delivery_id}/replay", response_model=WebhookDeliveryOut)
+async def replay_webhook_delivery(
+    delivery_id: UUID,
+    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
+) -> WebhookDeliveryOut:
+    delivery = await WebhookService().replay_delivery(db, current_admin.tenant_id, delivery_id)
+    return WebhookDeliveryOut.model_validate(delivery)
 
 
 @router.get("/{webhook_id}", response_model=WebhookOut)
 async def get_webhook(
     webhook_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
 ) -> WebhookOut:
-    """Get a single webhook."""
-    try:
-        return await WebhookService().get_webhook(db, current_admin.tenant_id, webhook_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch webhook: {e}",
-        ) from e
+    return await WebhookService().get_webhook(db, current_admin.tenant_id, webhook_id)
 
 
 @router.patch("/{webhook_id}", response_model=WebhookOut)
@@ -83,35 +88,35 @@ async def update_webhook(
     webhook_id: UUID,
     payload: WebhookUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
 ) -> WebhookOut:
-    """Update a webhook."""
-    try:
-        return await WebhookService().update_webhook(
-            db, current_admin.tenant_id, webhook_id, payload
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update webhook: {e}",
-        ) from e
+    return await WebhookService().update_webhook(db, current_admin.tenant_id, webhook_id, payload)
+
+
+@router.post("/{webhook_id}/rotate-secret", response_model=WebhookSecretRotationOut)
+async def rotate_webhook_secret(
+    webhook_id: UUID,
+    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
+) -> WebhookSecretRotationOut:
+    webhook = await WebhookService().rotate_secret(db, current_admin.tenant_id, webhook_id)
+    return WebhookSecretRotationOut(
+        webhook_id=webhook.id,
+        secret=webhook.secret,
+        rotated_at=webhook.secret_rotated_at,
+    )
 
 
 @router.delete("/{webhook_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_webhook(
     webhook_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(deps.require_admin_permission(AdminPermission.INTEGRATIONS_MANAGE))
+    ],
 ) -> None:
-    """Delete a webhook."""
-    try:
-        await WebhookService().delete_webhook(db, current_admin.tenant_id, webhook_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete webhook: {e}",
-        ) from e
+    await WebhookService().delete_webhook(db, current_admin.tenant_id, webhook_id)

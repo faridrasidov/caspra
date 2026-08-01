@@ -11,7 +11,7 @@ from app.models.ledger.wallet import Wallet
 from app.schemas.public import ExternalTopupConfirmRequest, ExternalTopupStartRequest
 from app.schemas.wallet import WalletTopupRequest
 from app.services.ledger import LedgerService
-from app.utils.idempotency import find_existing_by_idempotency_key
+from app.utils.idempotency import canonical_request_hash, find_existing_by_idempotency_key
 
 
 class ExternalTopupService:
@@ -25,8 +25,21 @@ class ExternalTopupService:
     async def start(
         self, db: AsyncSession, tenant_id: UUID, payload: ExternalTopupStartRequest
     ) -> ExternalTopupSession:
+        request_hash = canonical_request_hash(
+            "external_topup.start",
+            wallet_id=payload.wallet_id,
+            customer_id=payload.customer_id,
+            card_id=payload.card_id,
+            amount_minor=payload.amount_minor,
+            currency=payload.currency,
+            external_payment_ref=payload.external_payment_ref,
+        )
         existing = await find_existing_by_idempotency_key(
-            db, ExternalTopupSession, payload.idempotency_key, tenant_id
+            db,
+            ExternalTopupSession,
+            payload.idempotency_key,
+            tenant_id,
+            request_hash,
         )
         if existing is not None:
             return existing
@@ -46,6 +59,7 @@ class ExternalTopupService:
             currency=payload.currency,
             status=ExternalTopupStatus.STARTED.value,
             idempotency_key=payload.idempotency_key,
+            request_hash=request_hash,
             external_payment_ref=payload.external_payment_ref,
         )
         db.add(session)
