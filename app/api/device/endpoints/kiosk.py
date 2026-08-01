@@ -40,7 +40,7 @@ async def topup_request(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to request top-up: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -59,7 +59,7 @@ async def topup_confirm(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to confirm top-up: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -78,7 +78,7 @@ async def topup_cancel(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to cancel top-up: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -96,5 +96,5 @@ async def payment_methods(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list payment methods: {e}",
+            detail="An unexpected error occurred",
         ) from e

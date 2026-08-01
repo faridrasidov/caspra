@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.models.ledger.hold import OfflineTransactionStatus
 from app.models.ledger.wallet import TransactionStatus, TransactionType
@@ -37,6 +37,8 @@ class OfflineQueueItem(BaseModel):
     card_uid: str = Field(..., min_length=1, max_length=120)
     amount_minor: int = Field(..., gt=0)
     currency: str = Field(..., min_length=3, max_length=3)
+    occurred_at: AwareDatetime
+    sequence_number: int = Field(..., gt=0)
     description: str | None = Field(None, max_length=500)
 
 
@@ -57,11 +59,61 @@ class OfflineSyncResultOut(BaseModel):
     accepted: int
     duplicates: int
     rejected: int
+    manual_review: int
     results: list[OfflineItemResult]
 
 
 class OfflineConfigOut(BaseModel):
-    max_offline_amount_minor: int
+    enabled: bool
+    uid_risk_accepted: bool
+    max_transaction_minor: int
+    max_card_total_minor: int
+    max_device_total_minor: int
+    max_outage_total_minor: int
+    max_queue_age_seconds: int
     max_queue_size: int
     sync_interval_s: int
     currency: str
+
+
+class OfflinePolicyUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+    uid_risk_accepted: bool
+    max_transaction_minor: int = Field(0, ge=0)
+    max_card_total_minor: int = Field(0, ge=0)
+    max_device_total_minor: int = Field(0, ge=0)
+    max_outage_total_minor: int = Field(0, ge=0)
+    max_queue_age_seconds: int = Field(3600, ge=60, le=604800)
+    max_queue_size: int = Field(100, ge=1, le=500)
+    sync_interval_seconds: int = Field(60, ge=5, le=3600)
+
+
+class OfflinePolicyOut(OfflinePolicyUpdate):
+    id: UUID
+    tenant_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OfflineReviewItemOut(BaseModel):
+    id: UUID
+    device_id: UUID
+    idempotency_key: UUID
+    card_uid: str
+    amount_minor: int
+    occurred_at: datetime
+    sequence_number: int
+    status: OfflineTransactionStatus
+    error: str | None = None
+    applied_transaction_id: UUID | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OfflineReviewDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: str = Field(..., pattern="^(accept|reject)$")
+    reason: str = Field(..., min_length=3, max_length=500)

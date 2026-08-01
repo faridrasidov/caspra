@@ -39,12 +39,29 @@ class DeviceStatusUpdate(BaseModel):
     status: DeviceStatus
 
 
+class DeviceResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
 class DeviceOut(DeviceBase):
     id: UUID
     tenant_id: UUID
     status: DeviceStatus
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DeviceProvisioningOut(DeviceOut):
+    hmac_secret: str = Field(..., description="Device secret shown only once")
+    hmac_secret_version: int
+
+
+class DeviceCredentialOut(BaseModel):
+    device_id: UUID
+    hmac_secret: str = Field(..., description="Rotated device secret shown only once")
+    hmac_secret_version: int
 
 
 class PaginatedDeviceOut(PaginationSchema):

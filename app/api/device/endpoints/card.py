@@ -35,7 +35,7 @@ async def verify_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to verify card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -53,7 +53,7 @@ async def card_info(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card info: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -71,7 +71,7 @@ async def card_balance(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch card balance: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -92,7 +92,7 @@ async def assign_temp_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to assign temp card: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -111,5 +111,5 @@ async def unassign_temp_card(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to unassign temp card: {e}",
+            detail="An unexpected error occurred",
         ) from e

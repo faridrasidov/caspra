@@ -3,6 +3,9 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
+
+from app.models.audit.audit_log import AuditLog
 
 pytestmark = pytest.mark.asyncio
 
@@ -12,7 +15,7 @@ BASE = "/admin/api/v1"
 class TestOrganization:
     """Tests for the org resource group."""
 
-    async def test_get_and_update_org(self, client, auth_headers_admin):
+    async def test_get_and_update_org(self, client, db_session, auth_headers_admin):
         resp = await client.get(f"{BASE}/org", headers=auth_headers_admin)
         assert resp.status_code == 200
 
@@ -21,6 +24,11 @@ class TestOrganization:
         )
         assert updated.status_code == 200
         assert updated.json()["name"] == "Renamed Org"
+
+        audit_stmt = select(AuditLog).where(AuditLog.action == "patch:/admin/api/v1/org")
+        audit = (await db_session.execute(audit_stmt)).scalars().first()
+        assert audit is not None
+        assert audit.payload["request_id"]
 
     async def test_create_and_list_users(self, client, auth_headers_admin):
         created = await client.post(
@@ -188,6 +196,23 @@ class TestCatalogAndDevices:
         config = await client.get(f"{BASE}/devices/{device_id}/config", headers=auth_headers_admin)
         assert config.status_code == 200
 
+        missing_reason = await client.post(
+            f"{BASE}/devices/{device_id}/reset",
+            headers=auth_headers_admin,
+            json={},
+        )
+        assert missing_reason.status_code == 422
+
+        reset = await client.post(
+            f"{BASE}/devices/{device_id}/reset",
+            headers=auth_headers_admin,
+            json={"reason": "Recover reader configuration"},
+        )
+        assert reset.status_code == 200
+        assert reset.json()["type"] == "config_reset"
+        assert reset.json()["status"] == "pending"
+        assert reset.json()["payload"]["reason"] == "Recover reader configuration"
+
 
 class TestReportsAndNotifications:
     """Smoke tests for read-only aggregation and notification endpoints."""
@@ -196,6 +221,12 @@ class TestReportsAndNotifications:
         resp = await client.get(f"{BASE}/reports/daily", headers=auth_headers_admin)
         assert resp.status_code == 200
         assert "rows" in resp.json()
+
+    async def test_unattributed_sales_reports_are_not_exposed(self, client, auth_headers_admin):
+        top_products = await client.get(f"{BASE}/reports/top-products", headers=auth_headers_admin)
+        device_sales = await client.get(f"{BASE}/reports/devices", headers=auth_headers_admin)
+        assert top_products.status_code == 404
+        assert device_sales.status_code == 404
 
     async def test_notifications_read_all(self, client, auth_headers_admin):
         resp = await client.post(f"{BASE}/notifications/read-all", headers=auth_headers_admin)

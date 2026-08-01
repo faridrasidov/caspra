@@ -14,7 +14,6 @@ from app.api.device.endpoints import (
     sync,
     system,
     transactions,
-    ws,
 )
 
 device_router = APIRouter()
@@ -29,4 +28,3 @@ device_router.include_router(settings.router)
 device_router.include_router(firmware.router)
 device_router.include_router(sync.router)
 device_router.include_router(system.router)
-device_router.include_router(ws.router)

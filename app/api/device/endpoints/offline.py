@@ -31,7 +31,7 @@ async def offline_config(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch offline config: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -49,7 +49,7 @@ async def offline_sync(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to sync offline queue: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -67,5 +67,5 @@ async def offline_queue(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload offline queue: {e}",
+            detail="An unexpected error occurred",
         ) from e

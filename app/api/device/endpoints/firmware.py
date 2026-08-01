@@ -33,7 +33,7 @@ async def check_firmware(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to check firmware: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -51,7 +51,7 @@ async def download_firmware(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch firmware download: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -70,5 +70,5 @@ async def update_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to report firmware status: {e}",
+            detail="An unexpected error occurred",
         ) from e

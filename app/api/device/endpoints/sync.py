@@ -1,6 +1,7 @@
 # app/api/device/endpoints/sync.py
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from app.api import deps
 from app.api.deps import get_authenticated_device
 from app.models.device.device import Device
 from app.schemas.device_ops import (
+    DeviceCommandAckRequest,
     DeviceCommandOut,
     DeviceCommandPullOut,
     SyncStatusOut,
@@ -33,7 +35,7 @@ async def sync_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch sync status: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -52,7 +54,7 @@ async def push_telemetry(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to push telemetry: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -70,5 +72,16 @@ async def pull_commands(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to pull commands: {e}",
+            detail="An unexpected error occurred",
         ) from e
+
+
+@router.post("/commands/{command_id}/ack", response_model=DeviceCommandOut)
+async def acknowledge_command(
+    command_id: UUID,
+    payload: DeviceCommandAckRequest,
+    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    device: Annotated[Device, Depends(get_authenticated_device)],
+) -> DeviceCommandOut:
+    command = await DeviceSyncService().acknowledge(db, device, command_id, payload)
+    return DeviceCommandOut.model_validate(command)

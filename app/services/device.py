@@ -1,15 +1,21 @@
 # app/services/device.py
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import encrypt_device_secret, generate_device_secret
 from app.models.device.device import (
     Device,
     DeviceConfig,
     DeviceEvent,
-    DeviceStatus,
+)
+from app.models.device.management import (
+    DeviceCommand,
+    DeviceCommandStatus,
+    DeviceCommandType,
 )
 from app.schemas.device import (
     DeviceConfigUpdate,
@@ -32,18 +38,35 @@ class DeviceService(TenantScopedService):
 
     async def register_device(
         self, db: AsyncSession, tenant_id: UUID, payload: DeviceCreate
-    ) -> Device:
+    ) -> tuple[Device, str]:
+        raw_secret = generate_device_secret()
         device = Device(
             tenant_id=tenant_id,
             name=payload.name,
             serial=payload.serial,
             type=payload.type.value,
             location_id=payload.location_id,
+            hmac_secret_encrypted=encrypt_device_secret(raw_secret),
+            hmac_secret_version=1,
+            hmac_secret_rotated_at=datetime.now(UTC),
         )
         db.add(device)
         await db.commit()
         await db.refresh(device)
-        return device
+        return device, raw_secret
+
+    async def rotate_credentials(
+        self, db: AsyncSession, tenant_id: UUID, device_id: UUID
+    ) -> tuple[Device, str]:
+        device = await self.get_owned(db, device_id, tenant_id)
+        raw_secret = generate_device_secret()
+        device.hmac_previous_secret_encrypted = device.hmac_secret_encrypted
+        device.hmac_secret_encrypted = encrypt_device_secret(raw_secret)
+        device.hmac_secret_version += 1
+        device.hmac_secret_rotated_at = datetime.now(UTC)
+        await db.commit()
+        await db.refresh(device)
+        return device, raw_secret
 
     async def get_device(self, db: AsyncSession, tenant_id: UUID, device_id: UUID) -> Device:
         return await self.get_owned(db, device_id, tenant_id)
@@ -73,13 +96,31 @@ class DeviceService(TenantScopedService):
         await db.refresh(device)
         return device
 
-    async def reset(self, db: AsyncSession, tenant_id: UUID, device_id: UUID) -> Device:
-        """Reset a device back to active state."""
-        device = await self.get_owned(db, device_id, tenant_id)
-        device.status = DeviceStatus.ACTIVE.value
+    async def reset(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        device_id: UUID,
+        *,
+        reason: str,
+        requested_by: UUID,
+    ) -> DeviceCommand:
+        """Queue a leased reset command for explicit device acknowledgement."""
+        await self.get_owned(db, device_id, tenant_id)
+        command = DeviceCommand(
+            tenant_id=tenant_id,
+            device_id=device_id,
+            type=DeviceCommandType.CONFIG_RESET.value,
+            status=DeviceCommandStatus.PENDING.value,
+            payload={
+                "reason": reason,
+                "requested_by": str(requested_by),
+            },
+        )
+        db.add(command)
         await db.commit()
-        await db.refresh(device)
-        return device
+        await db.refresh(command)
+        return command
 
     async def get_config(self, db: AsyncSession, tenant_id: UUID, device_id: UUID) -> DeviceConfig:
         await self.get_owned(db, device_id, tenant_id)

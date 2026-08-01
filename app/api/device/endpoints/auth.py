@@ -104,5 +104,5 @@ async def download_config(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch config: {e}",
+            detail="An unexpected error occurred",
         ) from e

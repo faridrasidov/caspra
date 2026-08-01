@@ -7,18 +7,23 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import get_current_admin, require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.device import (
     DeviceConfigOut,
     DeviceConfigUpdate,
     DeviceCreate,
+    DeviceCredentialOut,
     DeviceOut,
+    DeviceProvisioningOut,
+    DeviceResetRequest,
     DeviceStatusUpdate,
     DeviceUpdate,
     PaginatedDeviceEventOut,
     PaginatedDeviceOut,
 )
+from app.schemas.device_ops import DeviceCommandOut
 from app.services.device import DeviceService
 
 router = APIRouter(prefix="/devices", tags=["admin-devices"])
@@ -40,26 +45,53 @@ async def list_devices(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list devices: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
-@router.post("", response_model=DeviceOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DeviceProvisioningOut, status_code=status.HTTP_201_CREATED)
 async def register_device(
     payload: DeviceCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
-) -> DeviceOut:
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
+) -> DeviceProvisioningOut:
     """Register a new device."""
     try:
-        return await DeviceService().register_device(db, current_admin.tenant_id, payload)
+        device, raw_secret = await DeviceService().register_device(
+            db, current_admin.tenant_id, payload
+        )
+        return DeviceProvisioningOut(
+            **DeviceOut.model_validate(device).model_dump(),
+            hmac_secret=raw_secret,
+            hmac_secret_version=device.hmac_secret_version,
+        )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to register device: {e}",
+            detail="An unexpected error occurred",
         ) from e
+
+
+@router.post("/{device_id}/credentials/rotate", response_model=DeviceCredentialOut)
+async def rotate_device_credentials(
+    device_id: UUID,
+    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
+) -> DeviceCredentialOut:
+    device, raw_secret = await DeviceService().rotate_credentials(
+        db, current_admin.tenant_id, device_id
+    )
+    return DeviceCredentialOut(
+        device_id=device.id,
+        hmac_secret=raw_secret,
+        hmac_secret_version=device.hmac_secret_version,
+    )
 
 
 @router.get("/{device_id}", response_model=DeviceOut)
@@ -76,7 +108,7 @@ async def get_device(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch device: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -85,7 +117,9 @@ async def update_device(
     device_id: UUID,
     payload: DeviceUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> DeviceOut:
     """Update a device."""
     try:
@@ -95,7 +129,7 @@ async def update_device(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update device: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -103,7 +137,9 @@ async def update_device(
 async def delete_device(
     device_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> None:
     """Delete a device."""
     try:
@@ -113,7 +149,7 @@ async def delete_device(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete device: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -122,7 +158,9 @@ async def set_device_status(
     device_id: UUID,
     payload: DeviceStatusUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> DeviceOut:
     """Set a device's status."""
     try:
@@ -132,25 +170,34 @@ async def set_device_status(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to set device status: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
-@router.post("/{device_id}/reset", response_model=DeviceOut)
+@router.post("/{device_id}/reset", response_model=DeviceCommandOut)
 async def reset_device(
     device_id: UUID,
+    payload: DeviceResetRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
-) -> DeviceOut:
-    """Reset a device to active status."""
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
+) -> DeviceCommandOut:
+    """Queue a reset command that remains pending until device acknowledgement."""
     try:
-        return await DeviceService().reset(db, current_admin.tenant_id, device_id)
+        return await DeviceService().reset(
+            db,
+            current_admin.tenant_id,
+            device_id,
+            reason=payload.reason,
+            requested_by=current_admin.id,
+        )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to reset device: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -168,7 +215,7 @@ async def get_device_config(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch device config: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -177,7 +224,9 @@ async def update_device_config(
     device_id: UUID,
     payload: DeviceConfigUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> DeviceConfigOut:
     """Update a device's configuration."""
     try:
@@ -187,7 +236,7 @@ async def update_device_config(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update device config: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -210,5 +259,5 @@ async def list_device_events(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list device events: {e}",
+            detail="An unexpected error occurred",
         ) from e

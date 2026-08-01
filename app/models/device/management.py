@@ -46,6 +46,7 @@ class DeviceCommandType(enum.StrEnum):
 
 class DeviceCommandStatus(enum.StrEnum):
     PENDING = "pending"
+    LEASED = "leased"
     DELIVERED = "delivered"
     ACKED = "acked"
     FAILED = "failed"
@@ -117,7 +118,7 @@ class FirmwareUpdate(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
 
 class DeviceCommand(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
-    """Server→device command queued for the device to pull and execute."""
+    """Server-to-device command queued for the device to pull and execute."""
 
     __tablename__ = "device_commands"
 
@@ -132,6 +133,13 @@ class DeviceCommand(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         VARCHAR(20), nullable=False, default=DeviceCommandStatus.PENDING.value
     )
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    delivery_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
 
 
 class DeviceTelemetry(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):

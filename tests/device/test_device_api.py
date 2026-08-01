@@ -1,10 +1,12 @@
 # tests/device/test_device_api.py
 
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import func, select
 
+from app.models.device.management import DeviceCommand
 from app.models.ledger.wallet import LedgerEntry, Transaction
 
 pytestmark = pytest.mark.asyncio
@@ -49,6 +51,36 @@ class TestDeviceAuthRBAC:
         resp = await client.get(f"{BASE}/ping")
         assert resp.status_code == 200
         assert resp.json()["pong"] is True
+
+    async def test_hmac_v2_replay_is_rejected(self, client, seeded_device, device_v2_signer):
+        path = f"{BASE}/card/verify"
+        headers, body = device_v2_signer(
+            seeded_device["device_id"],
+            seeded_device["device_secret"],
+            "POST",
+            path,
+            {"card_uid": seeded_device["card_uid"]},
+            nonce="fixed-replay-nonce-0001",
+        )
+        first = await client.post(path, headers=headers, content=body)
+        second = await client.post(path, headers=headers, content=body)
+        assert first.status_code == 200
+        assert second.status_code == 401
+        assert second.json()["code"] == "unauthorized"
+
+    async def test_hmac_v2_secret_cannot_impersonate_another_device(
+        self, client, seeded_device, seeded_device_other, device_v2_signer
+    ):
+        path = f"{BASE}/card/verify"
+        headers, body = device_v2_signer(
+            seeded_device_other["device_id"],
+            seeded_device["device_secret"],
+            "POST",
+            path,
+            {"card_uid": seeded_device_other["card_uid"]},
+        )
+        response = await client.post(path, headers=headers, content=body)
+        assert response.status_code == 401
 
 
 class TestDeviceCard:
@@ -204,6 +236,8 @@ class TestDeviceOffline:
                     "card_uid": seeded_device["card_uid"],
                     "amount_minor": 500,
                     "currency": "USD",
+                    "occurred_at": datetime.now(UTC).isoformat(),
+                    "sequence_number": 1,
                 }
             ]
         }
@@ -226,6 +260,74 @@ class TestDeviceOffline:
         assert balance.json()["balances"][0]["balance_minor"] == (
             int(seeded_device["balance_minor"]) - 500
         )
+
+    async def test_stale_and_gapped_operations_are_not_applied(
+        self, client, seeded_device, device_signer
+    ):
+        occurred_at = datetime.now(UTC)
+        request = {
+            "items": [
+                {
+                    "idempotency_key": str(uuid4()),
+                    "type": "debit",
+                    "card_uid": seeded_device["card_uid"],
+                    "amount_minor": 100,
+                    "currency": "USD",
+                    "occurred_at": (occurred_at - timedelta(hours=2)).isoformat(),
+                    "sequence_number": 1,
+                },
+                {
+                    "idempotency_key": str(uuid4()),
+                    "type": "debit",
+                    "card_uid": seeded_device["card_uid"],
+                    "amount_minor": 100,
+                    "currency": "USD",
+                    "occurred_at": occurred_at.isoformat(),
+                    "sequence_number": 3,
+                },
+            ]
+        }
+        headers, body = device_signer(seeded_device["device_id"], request)
+        response = await client.post(f"{BASE}/offline/queue", headers=headers, content=body)
+
+        assert response.status_code == 201
+        assert response.json()["accepted"] == 0
+        assert response.json()["rejected"] == 1
+        assert response.json()["manual_review"] == 1
+
+
+class TestDeviceCommandDelivery:
+    async def test_command_is_leased_until_acknowledged(
+        self, client, db_session, seeded_device, device_headers, device_signer
+    ):
+        command = DeviceCommand(
+            tenant_id=UUID(seeded_device["tenant_id"]),
+            device_id=UUID(seeded_device["device_id"]),
+            type="reload",
+            status="pending",
+        )
+        db_session.add(command)
+        await db_session.commit()
+        await db_session.refresh(command)
+
+        first = await client.get(f"{BASE}/sync/pull", headers=device_headers)
+        assert first.status_code == 200
+        assert first.json()["commands"][0]["status"] == "leased"
+        assert first.json()["commands"][0]["delivery_attempts"] == 1
+
+        second = await client.get(f"{BASE}/sync/pull", headers=device_headers)
+        assert second.status_code == 200
+        assert second.json()["commands"] == []
+
+        ack_payload = {"status": "acked"}
+        ack_headers, ack_body = device_signer(seeded_device["device_id"], ack_payload)
+        ack = await client.post(
+            f"{BASE}/sync/commands/{command.id}/ack",
+            headers=ack_headers,
+            content=ack_body,
+        )
+        assert ack.status_code == 200
+        assert ack.json()["status"] == "acked"
 
 
 class TestDeviceTenantIsolation:

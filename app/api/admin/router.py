@@ -12,8 +12,10 @@ from app.api.admin.endpoints import (
     kiosks,
     locations,
     notifications,
+    offline,
     org,
     products,
+    reconciliation,
     reports,
     settings,
     transactions,
@@ -31,6 +33,8 @@ admin_router.include_router(transactions.router)
 admin_router.include_router(devices.router)
 admin_router.include_router(kiosks.router)
 admin_router.include_router(products.router)
+admin_router.include_router(reconciliation.router)
+admin_router.include_router(offline.router)
 admin_router.include_router(locations.router)
 admin_router.include_router(settings.router)
 admin_router.include_router(reports.router)

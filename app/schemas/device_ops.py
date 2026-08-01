@@ -1,6 +1,7 @@
 # app/schemas/device_ops.py
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -38,6 +39,8 @@ class DeviceCommandOut(BaseModel):
     type: DeviceCommandType
     status: DeviceCommandStatus
     payload: dict | None = None
+    lease_expires_at: datetime | None = None
+    delivery_attempts: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -45,6 +48,13 @@ class DeviceCommandOut(BaseModel):
 
 class DeviceCommandPullOut(BaseModel):
     commands: list[DeviceCommandOut]
+
+
+class DeviceCommandAckRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["acked", "failed"]
+    error: str | None = Field(None, max_length=500)
 
 
 # ========== Settings ==========

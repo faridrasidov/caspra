@@ -1,12 +1,16 @@
 # app/services/device_ops.py
 
 from datetime import UTC, datetime, timedelta
+import hashlib
+import hmac
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.domain_errors import NotFoundError
+from app.core.config import settings
+from app.core.domain_errors import NotFoundError, ValidationError
 from app.models.device.device import Device, DeviceConfig, DeviceEvent
 from app.models.device.management import (
     DeviceCommand,
@@ -16,8 +20,10 @@ from app.models.device.management import (
     DeviceTelemetry,
     Firmware,
     FirmwareUpdate,
+    FirmwareUpdateStatus,
 )
 from app.schemas.device_ops import (
+    DeviceCommandAckRequest,
     DeviceEventPushRequest,
     DeviceSettingsOut,
     DeviceSettingsUpdateRequest,
@@ -30,10 +36,11 @@ from app.schemas.device_ops import (
 )
 
 FIRMWARE_URL_TTL_MINUTES = 15
+COMMAND_LEASE_MINUTES = 2
 
 
 class DeviceEventService:
-    """Device log push and server→device command pull."""
+    """Device log push and server-to-device command pull."""
 
     async def push(self, db: AsyncSession, device: Device, payload: DeviceEventPushRequest) -> int:
         for item in payload.events:
@@ -114,13 +121,11 @@ class DeviceFirmwareService:
             Firmware.id == firmware_id, Firmware.tenant_id == device.tenant_id
         )
         firmware = (await db.execute(stmt)).scalars().first()
-        if firmware is None:
+        if firmware is None or not firmware.active:
             raise NotFoundError("Firmware", str(firmware_id))
-        # NOTE: we return a signed-URL-style metadata stub rather than streaming the
-        # binary; actual blob delivery is delegated to object storage (see TODO).
         expires_at = datetime.now(UTC) + timedelta(minutes=FIRMWARE_URL_TTL_MINUTES)
         expiry_ts = int(expires_at.timestamp())
-        download_url = f"{firmware.binary_url}?device_id={device.id}&expires={expiry_ts}"
+        download_url = self._signed_download_url(firmware, device, expiry_ts)
         return FirmwareDownloadOut(
             firmware_id=firmware.id,
             version=firmware.version,
@@ -138,14 +143,55 @@ class DeviceFirmwareService:
             FirmwareUpdate.device_id == device.id,
             FirmwareUpdate.firmware_id == payload.firmware_id,
         )
+        firmware_stmt = select(Firmware).where(
+            Firmware.id == payload.firmware_id,
+            Firmware.tenant_id == device.tenant_id,
+            Firmware.active.is_(True),
+        )
+        firmware = (await db.execute(firmware_stmt)).scalars().first()
+        if firmware is None:
+            raise NotFoundError("Firmware", str(payload.firmware_id))
         update = (await db.execute(stmt)).scalars().first()
         if update is None:
+            if payload.status not in {
+                FirmwareUpdateStatus.PENDING,
+                FirmwareUpdateStatus.DOWNLOADING,
+            }:
+                raise ValidationError("A firmware update must start as pending or downloading")
             update = FirmwareUpdate(
                 tenant_id=device.tenant_id,
                 device_id=device.id,
                 firmware_id=payload.firmware_id,
             )
             db.add(update)
+        else:
+            allowed = {
+                FirmwareUpdateStatus.PENDING.value: {
+                    FirmwareUpdateStatus.DOWNLOADING.value,
+                    FirmwareUpdateStatus.FAILED.value,
+                },
+                FirmwareUpdateStatus.DOWNLOADING.value: {
+                    FirmwareUpdateStatus.INSTALLING.value,
+                    FirmwareUpdateStatus.FAILED.value,
+                },
+                FirmwareUpdateStatus.INSTALLING.value: {
+                    FirmwareUpdateStatus.COMPLETED.value,
+                    FirmwareUpdateStatus.FAILED.value,
+                },
+                FirmwareUpdateStatus.COMPLETED.value: set(),
+                FirmwareUpdateStatus.FAILED.value: set(),
+            }
+            if (
+                payload.status.value != update.status
+                and payload.status.value not in allowed[update.status]
+            ):
+                raise ValidationError(
+                    f"Invalid firmware transition: {update.status} -> {payload.status.value}"
+                )
+        if payload.status == FirmwareUpdateStatus.COMPLETED and payload.progress != 100:
+            raise ValidationError("Completed firmware updates must report 100 percent progress")
+        if payload.progress < update.progress and payload.status != FirmwareUpdateStatus.FAILED:
+            raise ValidationError("Firmware progress cannot decrease")
         update.status = payload.status.value
         update.progress = payload.progress
         update.error = payload.error
@@ -165,18 +211,53 @@ class DeviceFirmwareService:
         )
         return (await db.execute(stmt)).scalars().first()
 
+    @staticmethod
+    def _signed_download_url(firmware: Firmware, device: Device, expiry_ts: int) -> str:
+        parts = urlsplit(firmware.binary_url)
+        if parts.scheme != "https" or not parts.hostname:
+            raise ValidationError("Firmware artifacts must use an HTTPS object-storage URL")
+        claims = {
+            "caspra_checksum": firmware.checksum,
+            "caspra_device_id": str(device.id),
+            "caspra_expires": str(expiry_ts),
+            "caspra_firmware_id": str(firmware.id),
+        }
+        canonical = "\n".join(
+            [
+                parts.path,
+                claims["caspra_firmware_id"],
+                claims["caspra_device_id"],
+                claims["caspra_expires"],
+                claims["caspra_checksum"],
+            ]
+        )
+        claims["caspra_signature"] = hmac.new(
+            settings.firmware_signing_secret.encode(),
+            canonical.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        query = urlencode([*parse_qsl(parts.query, keep_blank_values=True), *claims.items()])
+        return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
+
 
 class DeviceSyncService:
     """Sync status, telemetry push, and command pull for a device."""
 
     async def status(self, db: AsyncSession, device: Device) -> SyncStatusOut:
+        now = datetime.now(UTC)
         count_stmt = (
             select(func.count())
             .select_from(DeviceCommand)
             .where(
                 DeviceCommand.tenant_id == device.tenant_id,
                 DeviceCommand.device_id == device.id,
-                DeviceCommand.status == DeviceCommandStatus.PENDING.value,
+                or_(
+                    DeviceCommand.status == DeviceCommandStatus.PENDING.value,
+                    and_(
+                        DeviceCommand.status == DeviceCommandStatus.LEASED.value,
+                        DeviceCommand.lease_expires_at <= now,
+                    ),
+                ),
             )
         )
         pending = int((await db.execute(count_stmt)).scalar_one())
@@ -195,7 +276,7 @@ class DeviceSyncService:
             device_id=device.id,
             pending_commands=pending,
             last_seen=last_seen,
-            server_time=datetime.now(UTC),
+            server_time=now,
         )
 
     async def push_telemetry(
@@ -216,21 +297,67 @@ class DeviceSyncService:
     async def pull(self, db: AsyncSession, device: Device) -> list[DeviceCommand]:
         return await _pull_pending_commands(db, device)
 
+    async def acknowledge(
+        self,
+        db: AsyncSession,
+        device: Device,
+        command_id: UUID,
+        payload: DeviceCommandAckRequest,
+    ) -> DeviceCommand:
+        stmt = (
+            select(DeviceCommand)
+            .where(
+                DeviceCommand.id == command_id,
+                DeviceCommand.tenant_id == device.tenant_id,
+                DeviceCommand.device_id == device.id,
+            )
+            .with_for_update()
+        )
+        command = (await db.execute(stmt)).scalars().first()
+        if command is None:
+            raise NotFoundError("Device command", str(command_id))
+        if command.status == payload.status:
+            return command
+        if command.status != DeviceCommandStatus.LEASED.value:
+            raise ValidationError("Only a leased command can be acknowledged")
+        if payload.status == DeviceCommandStatus.FAILED.value and not payload.error:
+            raise ValidationError("A failed command acknowledgement requires an error")
+
+        command.status = payload.status
+        command.acknowledged_at = datetime.now(UTC)
+        command.last_error = payload.error
+        command.lease_expires_at = None
+        await db.commit()
+        await db.refresh(command)
+        return command
+
 
 async def _pull_pending_commands(db: AsyncSession, device: Device) -> list[DeviceCommand]:
-    """Return pending commands for a device and mark them delivered."""
+    """Lease pending or abandoned commands for explicit device acknowledgement."""
+    now = datetime.now(UTC)
     stmt = (
         select(DeviceCommand)
         .where(
             DeviceCommand.tenant_id == device.tenant_id,
             DeviceCommand.device_id == device.id,
-            DeviceCommand.status == DeviceCommandStatus.PENDING.value,
+            or_(
+                DeviceCommand.status == DeviceCommandStatus.PENDING.value,
+                and_(
+                    DeviceCommand.status == DeviceCommandStatus.LEASED.value,
+                    DeviceCommand.lease_expires_at <= now,
+                ),
+            ),
         )
         .order_by(DeviceCommand.created_at.asc())
+        .limit(100)
+        .with_for_update(skip_locked=True)
     )
     commands = list((await db.execute(stmt)).scalars().all())
     for command in commands:
-        command.status = DeviceCommandStatus.DELIVERED.value
+        command.status = DeviceCommandStatus.LEASED.value
+        command.delivered_at = now
+        command.lease_expires_at = now + timedelta(minutes=COMMAND_LEASE_MINUTES)
+        command.delivery_attempts += 1
     if commands:
         await db.commit()
     return commands

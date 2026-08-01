@@ -25,7 +25,13 @@ get_settings.cache_clear()
 
 from app.core.config import settings  # noqa: E402
 from app.core.scopes import all_scopes  # noqa: E402
-from app.core.security import create_access_token, hash_password  # noqa: E402
+from app.core.security import (  # noqa: E402
+    build_device_signature_v2,
+    create_access_token,
+    encrypt_device_secret,
+    generate_device_secret,
+    hash_password,
+)
 from app.db.session import Base  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models.catalog.product import Product, ProductCategory  # noqa: E402
@@ -35,6 +41,7 @@ from app.models.ledger.wallet import Customer, Wallet  # noqa: E402
 from app.models.tenant.organization import (  # noqa: E402
     Membership,
     MembershipStatus,
+    OfflinePolicy,
     Organization,
 )
 
@@ -87,14 +94,14 @@ async def _seed_tenant_admin(
 
 @pytest.fixture
 async def db_engine():
-    # StaticPool keeps a single shared connection so the in-memory SQLite database
-    # is visible across the seeding sessions and the app's request sessions.
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine_kwargs = {"echo": False}
+    if TEST_DATABASE_URL.startswith("sqlite"):
+        # Keep one connection so an in-memory SQLite database is shared by the app.
+        engine_kwargs.update(
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+    engine = create_async_engine(TEST_DATABASE_URL, **engine_kwargs)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
@@ -114,6 +121,7 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession]:
 async def client(db_engine) -> AsyncGenerator[AsyncClient]:
     app = create_app()
     session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    app.state.engine = db_engine
     app.state.session_factory = session_factory
 
     transport = ASGITransport(app=app)
@@ -179,6 +187,20 @@ async def _seed_device_env(
         org = Organization(name=f"Org {slug}", slug=slug, default_currency=currency)
         session.add(org)
         await session.flush()
+        session.add(
+            OfflinePolicy(
+                tenant_id=org.id,
+                enabled=True,
+                uid_risk_accepted=True,
+                max_transaction_minor=2_000,
+                max_card_total_minor=5_000,
+                max_device_total_minor=10_000,
+                max_outage_total_minor=20_000,
+                max_queue_age_seconds=3600,
+                max_queue_size=100,
+                sync_interval_seconds=60,
+            )
+        )
 
         customer = Customer(tenant_id=org.id, full_name="Card Holder")
         session.add(customer)
@@ -205,7 +227,15 @@ async def _seed_device_env(
         session.add(card)
         await session.flush()
 
-        device = Device(tenant_id=org.id, name="Reader 1", type="reader", status=device_status)
+        device_secret = generate_device_secret()
+        device = Device(
+            tenant_id=org.id,
+            name="Reader 1",
+            type="reader",
+            status=device_status,
+            hmac_secret_encrypted=encrypt_device_secret(device_secret),
+            hmac_secret_version=1,
+        )
         session.add(device)
         await session.flush()
 
@@ -218,6 +248,7 @@ async def _seed_device_env(
             "card_uid": card_uid,
             "currency": currency,
             "balance_minor": str(balance_minor),
+            "device_secret": device_secret,
         }
 
 
@@ -272,6 +303,45 @@ def device_headers(seeded_device: dict[str, str]) -> dict[str, str]:
         "X-Device-Timestamp": "0",
         "X-Device-Signature": _sign_device(device_id, "0", b""),
     }
+
+
+@pytest.fixture
+def device_v2_signer():
+    """Build HMAC v2 headers for an exact method, path, nonce, and body."""
+
+    def _make(
+        device_id: str,
+        secret: str,
+        method: str,
+        path: str,
+        payload: dict | None = None,
+        *,
+        nonce: str | None = None,
+    ) -> tuple[dict[str, str], bytes]:
+        body = b"" if payload is None else json.dumps(payload).encode()
+        timestamp = str(int(__import__("time").time()))
+        request_nonce = nonce or secrets.token_urlsafe(24)
+        signature = build_device_signature_v2(
+            secret=secret,
+            method=method,
+            path=path,
+            device_id=device_id,
+            timestamp=timestamp,
+            nonce=request_nonce,
+            body=body,
+        )
+        headers = {
+            "X-Device-Id": device_id,
+            "X-Device-Timestamp": timestamp,
+            "X-Device-Nonce": request_nonce,
+            "X-Device-Signature-Version": "2",
+            "X-Device-Signature": signature,
+        }
+        if payload is not None:
+            headers["Content-Type"] = "application/json"
+        return headers, body
+
+    return _make
 
 
 # ========== Public Developer API fixtures ==========

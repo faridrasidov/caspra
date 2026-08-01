@@ -1,9 +1,10 @@
 # app/models/device/device.py
 
+from datetime import datetime
 import enum
 from uuid import UUID as PyUUID
 
-from sqlalchemy import JSON, VARCHAR, ForeignKey, UniqueConstraint
+from sqlalchemy import JSON, VARCHAR, DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -83,6 +84,12 @@ class Device(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         ForeignKey("locations.id", name="fk_devices_location_id_locations", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+    hmac_secret_encrypted: Mapped[str | None] = mapped_column(VARCHAR(512), nullable=True)
+    hmac_previous_secret_encrypted: Mapped[str | None] = mapped_column(VARCHAR(512), nullable=True)
+    hmac_secret_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    hmac_secret_rotated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 

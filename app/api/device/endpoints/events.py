@@ -34,7 +34,7 @@ async def push_events(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to push events: {e}",
+            detail="An unexpected error occurred",
         ) from e
 
 
@@ -52,5 +52,5 @@ async def pull_events(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to pull events: {e}",
+            detail="An unexpected error occurred",
         ) from e
