@@ -6,7 +6,7 @@ import hashlib
 import json
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError
@@ -41,7 +41,19 @@ async def find_existing_by_idempotency_key(
     tenant_id: UUID,
     request_hash: str | None = None,
 ):
-    """Return an existing row for a replayed idempotency key, if any."""
+    """Lock and return an existing row for a replayed idempotency key, if any.
+
+    PostgreSQL's unique constraint remains the source of truth, while the
+    transaction-scoped advisory lock closes the check-then-insert race between
+    concurrent requests using the same tenant/key pair. Hash collisions only
+    serialize unrelated requests; they cannot change ledger results.
+    """
+    bind = db.get_bind()
+    if bind.dialect.name == "postgresql":
+        lock_digest = hashlib.sha256(tenant_id.bytes + idempotency_key.bytes).digest()
+        lock_key = int.from_bytes(lock_digest[:8], byteorder="big", signed=True)
+        await db.execute(select(func.pg_advisory_xact_lock(lock_key)))
+
     stmt = select(model).where(
         model.idempotency_key == idempotency_key,  # type: ignore[attr-defined]
         model.tenant_id == tenant_id,  # type: ignore[attr-defined]
