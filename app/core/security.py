@@ -9,7 +9,8 @@ from typing import Any
 
 import bcrypt
 from cryptography.fernet import Fernet, InvalidToken
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 
 from app.core.config import settings
 
@@ -122,7 +123,7 @@ def verify_device_signature_v2(
 def extract_token_subject(token: str) -> str:
     try:
         payload = decode_access_token(token)
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise ValueError("Invalid token") from exc
     subject = payload.get("sub")
     if not subject:
