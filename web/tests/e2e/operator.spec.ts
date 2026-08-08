@@ -220,19 +220,20 @@ test("operator can sign in, inspect a charge, and submit a refund", async ({
   page,
 }, testInfo) => {
   await login(page);
+  const screenshotDirectory = process.env.CASPRA_SCREENSHOT_DIR ?? "../docs/design";
+  const mobileProject = testInfo.project.name.includes("mobile");
   await page.screenshot({
-    path:
-      testInfo.project.name === "chromium"
-        ? "../docs/design/operator-dashboard-implemented.png"
-        : "../docs/design/operator-dashboard-mobile.png",
+    path: mobileProject
+      ? `${screenshotDirectory}/operator-dashboard-mobile.png`
+      : `${screenshotDirectory}/operator-dashboard-implemented.png`,
     fullPage: true,
   });
   await page.getByTitle("Refund transaction").click();
   await expect(page.getByRole("dialog")).toContainText("Refund transaction");
-  if (testInfo.project.name === "chromium") {
+  if (!mobileProject) {
     await page.waitForTimeout(250);
     await page.screenshot({
-      path: "../docs/design/operator-dashboard-refund.png",
+      path: `${screenshotDirectory}/operator-dashboard-refund.png`,
       fullPage: true,
     });
   }

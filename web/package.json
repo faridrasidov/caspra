@@ -5,26 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --pretty false",
+    "build": "vue-tsc -b --pretty false && vite build",
+    "typecheck": "vue-tsc -b --pretty false",
     "generate:api": "openapi-typescript ../openapi.json -o src/api/schema.d.ts",
+    "check:icons": "node scripts/check-icons.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.101.4",
-    "lucide-react": "^1.28.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2",
-    "recharts": "^3.10.1"
+    "@remixicon/vue": "4.9",
+    "@tanstack/vue-query": "^5.101.4",
+    "chart.js": "^4.5.1",
+    "vue": "3.5",
+    "vue-chartjs": "^5.3.4",
+    "vue-router": "4.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.5",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.8.1",
     "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vue-tsc": "^3.3.9"
   }
 }

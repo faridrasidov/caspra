@@ -66,6 +66,7 @@ jobs:
       - run: npm ci --no-audit
       - run: npm run generate:api
       - run: git diff --exit-code -- src/api/schema.d.ts
+      - run: npm run check:icons
       - run: npm run typecheck
       - run: npm run build
       - run: npx playwright install --with-deps chromium

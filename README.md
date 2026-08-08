@@ -150,7 +150,7 @@ These conventions are enforced as rules in `.cursor/rules/`.
 ## Related repositories
 
 - **caspra-node** — reader / edge gateway agents (ESP32 firmware + Raspberry Pi gateway)
-- **caspra-frontend** — admin and customer dashboards (React + TypeScript)
+- **caspra-frontend** — admin and customer dashboards (Vue + TypeScript + Tailwind CSS)
 
 ## Contributing
 
