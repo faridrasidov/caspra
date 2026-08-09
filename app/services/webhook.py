@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 import httpx
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError, ValidationError
@@ -21,6 +21,7 @@ from app.models.tenant.organization import Webhook
 from app.models.tenant.webhook_delivery import WebhookDelivery, WebhookDeliveryStatus
 from app.schemas.webhook import WebhookCreate, WebhookUpdate
 from app.services.base import TenantScopedService
+from app.utils.pagination import paginate_async_query
 
 SUBSCRIBABLE_EVENT_TYPES: list[str] = [
     "customer.created",
@@ -201,27 +202,18 @@ class WebhookService(TenantScopedService):
     async def list_deliveries(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
     ) -> dict:
-        offset = (page - 1) * limit
-        base = select(WebhookDelivery).where(WebhookDelivery.tenant_id == tenant_id)
-        items = (
-            (
-                await db.execute(
-                    base.order_by(WebhookDelivery.created_at.desc()).offset(offset).limit(limit)
-                )
-            )
-            .scalars()
-            .all()
+        stmt = (
+            select(WebhookDelivery)
+            .where(WebhookDelivery.tenant_id == tenant_id)
+            .order_by(WebhookDelivery.created_at.desc())
         )
-        total = int(
-            (
-                await db.execute(
-                    select(func.count())
-                    .select_from(WebhookDelivery)
-                    .where(WebhookDelivery.tenant_id == tenant_id)
-                )
-            ).scalar_one()
+        return await paginate_async_query(
+            session=db,
+            base_query=stmt,
+            page=page,
+            limit=limit,
+            use_scalars=True,
         )
-        return {"items": list(items), "total": total, "page": page, "limit": limit}
 
     async def replay_delivery(
         self, db: AsyncSession, tenant_id: UUID, delivery_id: UUID

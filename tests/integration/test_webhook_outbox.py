@@ -15,6 +15,19 @@ from app.services.webhook import validate_webhook_destination
 pytestmark = pytest.mark.asyncio
 
 
+@pytest.mark.parametrize("limit", [5, 100])
+async def test_empty_admin_delivery_list_returns_paginated_response(
+    client, auth_headers_admin, limit
+):
+    response = await client.get(
+        f"/admin/api/v1/webhooks/deliveries?page=1&limit={limit}",
+        headers=auth_headers_admin,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 0, "page": 1, "pages": 0}
+
+
 async def test_ledger_commit_creates_transactional_outbox_row(db_session, seeded_device):
     tenant_id = UUID(seeded_device["tenant_id"])
     webhook = Webhook(
