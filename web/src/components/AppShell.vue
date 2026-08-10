@@ -17,7 +17,7 @@ import {
   RiWebhookLine,
   RiWifiOffLine,
 } from "@remixicon/vue";
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 
 import { useAuth } from "../auth/useAuth";
@@ -65,14 +65,70 @@ const navigation = [
 const route = useRoute();
 const { user, permissions, logout } = useAuth();
 const mobileNav = ref(false);
+const userMenuOpen = ref(false);
+const userMenuButtonRef = ref<HTMLButtonElement | null>(null);
+const userMenuRef = ref<HTMLElement | null>(null);
 const current = computed(
-  () =>
-    navigation.find((item) =>
+  () => {
+    const direct = navigation.find((item) =>
       item.to === "/" ? route.path === "/" : route.path.startsWith(item.to),
-    ) ?? navigation[0],
+    );
+    if (direct) return direct;
+    if (route.path.startsWith("/settings")) return navigation.find((item) => item.to === "/settings") ?? { to: "/settings", label: "Settings", icon: RiSettings3Line };
+    if (route.path === "/notifications") {
+      return { to: "/notifications", label: "Notifications", icon: RiNotificationLine };
+    }
+    if (route.path === "/profile") {
+      return { to: "/profile", label: "Profile", icon: RiBuilding2Line };
+    }
+    return { to: route.path, label: "Overview", icon: RiDashboardLine };
+  },
 );
 const visibleNavigation = computed(() =>
   navigation.filter((item) => !item.permission || permissions.value.has(item.permission)),
+);
+
+const closeUserMenu = () => {
+  userMenuOpen.value = false;
+};
+
+function toggleUserMenu() {
+  userMenuOpen.value = !userMenuOpen.value;
+}
+
+function closeMenuAndLogout() {
+  closeUserMenu();
+  logout();
+}
+
+function handleDocumentPointerDown(event: MouseEvent) {
+  if (!userMenuOpen.value) return;
+  const target = event.target as Node | null;
+  if (!target) return;
+  if (userMenuButtonRef.value?.contains(target)) return;
+  if (userMenuRef.value?.contains(target)) return;
+  closeUserMenu();
+}
+
+function handleDocumentKeyDown(event: KeyboardEvent) {
+  if (event.key === "Escape") closeUserMenu();
+}
+
+onMounted(() => {
+  document.addEventListener("pointerdown", handleDocumentPointerDown);
+  document.addEventListener("keydown", handleDocumentKeyDown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", handleDocumentPointerDown);
+  document.removeEventListener("keydown", handleDocumentKeyDown);
+});
+
+watch(
+  () => route.path,
+  () => {
+    closeUserMenu();
+  },
 );
 </script>
 
@@ -139,20 +195,62 @@ const visibleNavigation = computed(() =>
             <span>Primary venue</span>
             <RiArrowDownSLine aria-hidden="true" class="size-[15px]" />
           </button>
-          <IconButton label="Notifications" :icon="RiNotificationLine" class="max-[760px]:hidden" />
-          <button
-            class="flex h-10 min-w-[210px] items-center gap-2.5 rounded-md border border-line bg-white px-2.5 text-left max-[760px]:min-w-0 max-[760px]:border-0 max-[760px]:px-1"
-            @click="logout"
+          <RouterLink
+            to="/notifications"
+            aria-label="Notifications"
+            class="inline-grid size-9 shrink-0 place-items-center rounded-md border border-line bg-white text-muted transition-colors hover:bg-subtle hover:text-ink max-[760px]:hidden"
           >
-            <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#45515c] text-[11px] font-bold text-white">
-              {{ user?.email.slice(0, 1).toUpperCase() }}
-            </span>
-            <span class="grid min-w-0 flex-1 max-[760px]:hidden">
-              <strong class="truncate text-[11px] leading-4">{{ user?.full_name || "Operator" }}</strong>
-              <small class="truncate text-[9px] leading-3 text-muted">{{ user?.email }}</small>
-            </span>
-            <RiArrowDownSLine aria-hidden="true" class="size-[15px] max-[760px]:hidden" />
-          </button>
+            <RiNotificationLine aria-hidden="true" class="size-[18px]" />
+          </RouterLink>
+          <div class="relative">
+            <button
+              ref="userMenuButtonRef"
+              class="flex h-10 min-w-[210px] items-center gap-2.5 rounded-md border border-line bg-white px-2.5 text-left max-[760px]:min-w-0 max-[760px]:border-0 max-[760px]:px-1"
+              @click="toggleUserMenu"
+            >
+              <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#45515c] text-[11px] font-bold text-white">
+                {{ user?.email.slice(0, 1).toUpperCase() }}
+              </span>
+              <span class="grid min-w-0 flex-1 max-[760px]:hidden">
+                <strong class="truncate text-[11px] leading-4">{{ user?.full_name || "Operator" }}</strong>
+                <small class="truncate text-[9px] leading-3 text-muted">{{ user?.email }}</small>
+              </span>
+              <RiArrowDownSLine aria-hidden="true" class="size-[15px] max-[760px]:hidden" />
+            </button>
+            <div
+              v-if="userMenuOpen"
+              ref="userMenuRef"
+              class="absolute right-0 top-full z-30 mt-2 w-52 rounded-md border border-line bg-white p-1 shadow-[0_10px_28px_rgb(8_24_38/18%)]"
+            >
+              <RouterLink
+                to="/profile"
+                class="block rounded-md px-2.5 py-2 text-left text-[11px] font-semibold text-ink hover:bg-subtle"
+                @click="closeUserMenu"
+              >
+                Profile
+              </RouterLink>
+              <RouterLink
+                to="/settings"
+                class="block rounded-md px-2.5 py-2 text-left text-[11px] font-semibold text-ink hover:bg-subtle"
+                @click="closeUserMenu"
+              >
+                Settings
+              </RouterLink>
+              <RouterLink
+                to="/notifications"
+                class="block rounded-md px-2.5 py-2 text-left text-[11px] font-semibold text-ink hover:bg-subtle"
+                @click="closeUserMenu"
+              >
+                Notifications
+              </RouterLink>
+              <button
+                class="block w-full rounded-md px-2.5 py-2 text-left text-[11px] font-semibold text-danger transition-colors hover:bg-subtle"
+                @click="closeMenuAndLogout"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
       </header>
       <main class="min-h-[calc(100vh-64px)] p-[18px_22px_32px] max-[760px]:min-h-[calc(100vh-56px)] max-[760px]:p-4 max-[760px]:px-3">

@@ -103,6 +103,22 @@ Export the OpenAPI spec for SDK generation in other repos:
 python scripts/gen_openapi.py        # → openapi.json
 ```
 
+## Demo data
+
+After applying the Alembic migrations, create a separate demo tenant with coherent
+customers, cards, wallets, devices, balanced ledger entries, refunds, offline-review
+items, and webhook deliveries from the latest 30 days:
+
+```bash
+python scripts/seed_mock_data.py --dry-run
+python scripts/seed_mock_data.py
+```
+
+The script reads `DATABASE_URL` from `.env`, prints generated admin/API/device
+credentials, and never replaces an existing tenant. Use another slug for an additional
+dataset, for example `--tenant-slug demo-30d-2`. Production environments also require
+`--allow-production`.
+
 ## Testing
 
 ```bash
