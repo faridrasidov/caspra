@@ -177,3 +177,25 @@ Contributions are welcome. Please keep changes consistent with the layered archi
 Caspra is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0) — see [`LICENSE`](LICENSE).
 
 The AGPL ensures that anyone who runs a modified version of Caspra as a network service must share their changes with the community. If you want to build a closed-source product or hosted service on top of Caspra without these obligations, a **commercial license** is available — reach out to discuss enterprise terms.
+
+## Frontend CI/CD Deployment
+
+This repo ships with a frontend deploy job in `.github/workflows/ci.yml` that deploys `web/dist` only after both backend and frontend checks pass.
+
+### Required GitHub Secrets / Variables
+
+Set these repository secrets before enabling deploy:
+
+- `BACKEND_HEALTH_URL`: URL used to validate backend before deployment, for example `https://api.caspra.local/api/v1/health/live`
+- `FRONTEND_SERVER_HOST`: target host for SSH deployment (IP or hostname)
+- `FRONTEND_SERVER_USER`: SSH username (for example `deployer`)
+- `FRONTEND_SERVER_PATH`: destination directory on the server (for example `/var/www/html/caspra`)
+- `FRONTEND_SSH_PRIVATE_KEY`: private key content for the deploy user
+- Optional `FRONTEND_SERVER_PORT`: SSH port (defaults to `22` if unset)
+- Optional `FRONTEND_SERVER_RELOAD_CMD`: command to refresh services after sync (for example `sudo systemctl reload nginx`)
+
+### How deploy is gated
+
+- Backend checks are from the existing `validate` job (`python` + tests + lint + openapi + security checks).
+- Frontend checks are from the existing `dashboard` job (`generate:api`, icons check, type-check, build, e2e).
+- Deploy only runs on `push` to `main` and requires both jobs to complete successfully.

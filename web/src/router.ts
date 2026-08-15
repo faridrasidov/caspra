@@ -23,6 +23,8 @@ export const router = createRouter({
         { path: "api-keys", component: () => import("./pages/ApiKeysPage.vue") },
         { path: "audit", component: () => import("./pages/AuditPage.vue") },
         { path: "settings", component: () => import("./pages/SettingsPage.vue") },
+        { path: "notifications", component: () => import("./pages/NotificationsPage.vue") },
+        { path: "profile", component: () => import("./pages/ProfilePage.vue") },
       ],
     },
     { path: "/:pathMatch(.*)*", redirect: "/" },
