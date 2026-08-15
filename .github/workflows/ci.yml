@@ -90,33 +90,16 @@ jobs:
 
       - name: Prepare frontend checks
         run: |
-          if [ -z "$BACKEND_HEALTH_URL" ]; then
-            echo "::error::BACKEND_HEALTH_URL secret is required for deployment."
-            exit 1
-          fi
           if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_USER" ] || [ -z "$SERVER_PATH" ] || [ -z "$SSH_PRIVATE_KEY" ]; then
             echo "::error::Frontend deploy secrets are incomplete. Set SERVER_HOST, SERVER_USER, SERVER_PATH, SSH_PRIVATE_KEY."
             exit 1
           fi
-          for i in $(seq 1 20); do
-            echo "Checking backend readiness ($i/20)..."
-            if curl -fsS "$BACKEND_HEALTH_URL" >/dev/null; then
-              echo "Backend health check passed."
-              break
-            fi
-            if [ "$i" -eq 20 ]; then
-              echo "::error::Backend health check failed at $BACKEND_HEALTH_URL"
-              exit 1
-            fi
-            sleep 5
-          done
           npm ci --no-audit
           npm run generate:api
           npm run check:icons
           npm run typecheck
           npm run build
         env:
-          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
           SERVER_HOST: ${{ secrets.FRONTEND_SERVER_HOST }}
           SERVER_USER: ${{ secrets.FRONTEND_SERVER_USER }}
           SERVER_PATH: ${{ secrets.FRONTEND_SERVER_PATH }}
@@ -138,6 +121,19 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           PORT="${SERVER_PORT:-22}"
           ssh-keyscan -p "$PORT" -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+          for i in $(seq 1 20); do
+            echo "Checking backend readiness over SSH ($i/20)..."
+            if ssh -p "$PORT" "$SERVER_USER@$SERVER_HOST" \
+              "curl -fsS http://127.0.0.1:8000/api/v1/health/ready >/dev/null"; then
+              echo "Backend readiness check passed."
+              break
+            fi
+            if [ "$i" -eq 20 ]; then
+              echo "::error::Backend readiness check failed on the deployment server."
+              exit 1
+            fi
+            sleep 5
+          done
           rsync -az -e "ssh -p $PORT -o StrictHostKeyChecking=yes" ./dist/ "$SERVER_USER@$SERVER_HOST:$SERVER_PATH/"
           if [ -n "$SERVER_RELOAD_CMD" ]; then
             ssh -p "$PORT" "$SERVER_USER@$SERVER_HOST" "$SERVER_RELOAD_CMD"
