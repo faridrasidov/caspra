@@ -72,9 +72,6 @@ async function mockApi(page: Page) {
     if (path.endsWith("/auth/permissions")) {
       return json({ permissions });
     }
-    if (path.endsWith("/transactions") && method === "GET") {
-      return json({ items: [transaction], total: 1, page: 1, limit: 100 });
-    }
     if (path.endsWith("/transactions/stats")) {
       return json({
         total_count: 1,
@@ -82,6 +79,15 @@ async function mockApi(page: Page) {
         total_debit_minor: 2000,
         currency: "USD",
       });
+    }
+    if (path.endsWith("/transactions/export")) {
+      return json({ format: "json", rows: [transaction] });
+    }
+    if (path.endsWith("/transactions") && method === "GET") {
+      return json({ items: [transaction], total: 1, page: 1, limit: 100 });
+    }
+    if (path.includes("/transactions/") && method === "GET") {
+      return json(transaction);
     }
     if (path.endsWith("/refund") && method === "POST") {
       return json(
@@ -115,8 +121,28 @@ async function mockApi(page: Page) {
         limit: 100,
       });
     }
+    if (path.endsWith("/wallets") && method === "POST") {
+      return json(
+        {
+          id: crypto.randomUUID(),
+          tenant_id: transaction.tenant_id,
+          customer_id: transaction.customer_id,
+          type: "credit",
+          currency: "USD",
+          balance_minor: 0,
+          status: "active",
+        },
+        201,
+      );
+    }
+    if (path.endsWith("/wallets/transfer") && method === "POST") {
+      return json({ ...transaction, type: "transfer" }, 201);
+    }
     if (path.endsWith("/topup") && method === "POST") {
       return json({ ...transaction, type: "credit", amount_minor: 1000 }, 201);
+    }
+    if (path.endsWith("/deduct") && method === "POST") {
+      return json({ ...transaction, type: "debit", amount_minor: 500 }, 201);
     }
     if (path.endsWith("/devices") && method === "GET") {
       return json({
@@ -179,8 +205,80 @@ async function mockApi(page: Page) {
     if (path.endsWith("/webhooks")) {
       return json({ items: [], total: 0, page: 1, limit: 100 });
     }
+    if (path.endsWith("/customers") && method === "GET") {
+      return json({
+        items: [
+          {
+            id: transaction.customer_id,
+            tenant_id: transaction.tenant_id,
+            full_name: "Ada Lovelace",
+            email: "ada@caspra.test",
+            phone: null,
+            external_id: "ada-1",
+            status: "active",
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 100,
+      });
+    }
+    if (path.endsWith("/customers") && method === "POST") {
+      return json(
+        {
+          id: crypto.randomUUID(),
+          tenant_id: transaction.tenant_id,
+          full_name: "New Customer",
+          email: "new@caspra.test",
+          status: "active",
+        },
+        201,
+      );
+    }
+    if (path.endsWith("/customers/import") && method === "POST") {
+      return json({ created: 1, skipped: 0 });
+    }
+    if (path.endsWith("/balances") && method === "GET") {
+      return json({
+        customer_id: transaction.customer_id,
+        balances: [
+          {
+            wallet_id: transaction.wallet_id,
+            currency: "USD",
+            balance_minor: 12543068,
+            type: "credit",
+          },
+        ],
+      });
+    }
+    if (path.includes("/customers/") && method === "PATCH") {
+      return json({
+        id: transaction.customer_id,
+        tenant_id: transaction.tenant_id,
+        full_name: "Ada Lovelace",
+        email: "ada@caspra.test",
+        status: "active",
+      });
+    }
+    if (path.includes("/customers/") && method === "DELETE") {
+      return json({}, 204);
+    }
     if (path.endsWith("/cards") && method === "GET") {
-      return json({ items: [], total: 0, page: 1, limit: 100 });
+      return json({
+        items: [
+          {
+            id: "3c0f1d7a-2b61-4c0c-9d4b-0a7c6f2e91aa",
+            tenant_id: transaction.tenant_id,
+            uid: "CARD-001",
+            type: "rfid",
+            customer_id: transaction.customer_id,
+            status: "active",
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 20,
+      });
     }
     if (path.endsWith("/cards") && method === "POST") {
       return json(
@@ -193,6 +291,16 @@ async function mockApi(page: Page) {
         },
         201,
       );
+    }
+    if (path.includes("/cards/") && method === "POST") {
+      return json({
+        id: "3c0f1d7a-2b61-4c0c-9d4b-0a7c6f2e91aa",
+        tenant_id: transaction.tenant_id,
+        uid: "CARD-001",
+        type: "rfid",
+        customer_id: transaction.customer_id,
+        status: path.endsWith("/block") ? "blocked" : "active",
+      });
     }
     return json({ items: [], total: 0, page: 1, limit: 100 });
   });
@@ -252,7 +360,7 @@ test("operator can register an assigned card and initiate a wallet top-up", asyn
   await navigateTo(page, "Cards");
   await page.getByRole("button", { name: "Register card" }).click();
   await page.getByLabel("Card UID").fill("CARD-100");
-  await page.getByLabel("Customer ID").fill(transaction.customer_id);
+  await page.getByLabel("Customer").selectOption(transaction.customer_id);
   await page.getByRole("button", { name: "Register card" }).last().click();
 
   await navigateTo(page, "Wallets");
@@ -264,4 +372,23 @@ test("operator can register an assigned card and initiate a wallet top-up", asyn
   );
   await page.getByRole("button", { name: "Confirm top-up" }).click();
   await topupRequest;
+});
+
+test("operator can review customer balances and export transactions", async ({
+  page,
+}) => {
+  await login(page);
+  await navigateTo(page, "Customers");
+  await page.getByText("Ada Lovelace").click();
+  await expect(page.getByRole("dialog")).toContainText("Balances");
+  await expect(page.getByRole("dialog")).toContainText("credit");
+
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+  await navigateTo(page, "Transactions");
+  await expect(page.getByText("Posted count")).toBeVisible();
+  const exportRequest = page.waitForRequest(
+    (request) => request.url().includes("/transactions/export") && request.method() === "GET",
+  );
+  await page.getByRole("button", { name: "Export" }).click();
+  await exportRequest;
 });

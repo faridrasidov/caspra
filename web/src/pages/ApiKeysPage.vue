@@ -8,6 +8,7 @@ import AppDrawer from "../components/AppDrawer.vue";
 import CommandForm from "../components/CommandForm.vue";
 import FormField from "../components/FormField.vue";
 import ResourcePage, { type ResourceColumn } from "../components/ResourcePage.vue";
+import SecretOncePanel from "../components/SecretOncePanel.vue";
 import UiButton from "../components/UiButton.vue";
 
 const endpoint = "/admin/api/v1/api-keys";
@@ -39,11 +40,6 @@ function close() {
   name.value = "";
   createdKey.value = "";
 }
-
-async function copyAndClose() {
-  await navigator.clipboard.writeText(createdKey.value);
-  close();
-}
 </script>
 
 <template>
@@ -58,11 +54,12 @@ async function copyAndClose() {
     </template>
   </ResourcePage>
   <AppDrawer title="Create API key" :open="open" @close="close">
-    <div v-if="createdKey" class="grid gap-4 p-5">
-      <p class="text-[12px] text-muted">This key is shown once.</p>
-      <code class="overflow-x-auto rounded-md border border-line bg-subtle p-3 font-mono text-[11px]">{{ createdKey }}</code>
-      <UiButton @click="copyAndClose">Copy and close</UiButton>
-    </div>
+    <SecretOncePanel
+      v-if="createdKey"
+      :value="createdKey"
+      warning="This key is shown once."
+      @close="close"
+    />
     <CommandForm
       v-else
       submit-label="Create key"

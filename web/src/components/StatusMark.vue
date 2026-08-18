@@ -10,7 +10,8 @@ const tone = computed(() => {
     normalized.includes("offline") ||
     normalized.includes("dead") ||
     normalized.includes("reversed") ||
-    normalized.includes("revoked")
+    normalized.includes("revoked") ||
+    normalized.includes("block")
   ) {
     return "danger";
   }

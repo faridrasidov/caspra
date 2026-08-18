@@ -2,12 +2,13 @@
 import { useQuery } from "@tanstack/vue-query";
 import { computed, ref } from "vue";
 
-import { apiRequest } from "../api/client";
+import { apiRequest, toQuery } from "../api/client";
 import { formatMoney, renderValue } from "../utils/format";
 import DataState from "./DataState.vue";
 import PageHeader from "./PageHeader.vue";
 import SearchField from "./SearchField.vue";
 import StatusMark from "./StatusMark.vue";
+import UiButton from "./UiButton.vue";
 
 export type ResourceRecord = Record<string, unknown> & { id: string };
 export type ResourceColumn = {
@@ -31,13 +32,26 @@ const props = defineProps<{
   endpoint: string;
   columns: ResourceColumn[];
   rowActions?: boolean;
+  query?: Record<string, string | number | boolean | undefined>;
+}>();
+
+const emit = defineEmits<{
+  select: [row: ResourceRecord];
 }>();
 
 const search = ref("");
+const page = ref(1);
+const limit = 20;
 const resource = useQuery({
-  queryKey: ["resource", props.endpoint],
-  queryFn: () => apiRequest<PaginatedResult>(`${props.endpoint}?page=1&limit=100`),
+  queryKey: computed(() => ["resource", props.endpoint, page.value, props.query]),
+  queryFn: () =>
+    apiRequest<PaginatedResult>(
+      `${props.endpoint}${toQuery({ page: page.value, limit, ...props.query })}`,
+    ),
 });
+const pageCount = computed(() =>
+  Math.max(1, Math.ceil((resource.data.value?.total ?? 0) / limit)),
+);
 const rows = computed(() => {
   const normalized = search.value.trim().toLowerCase();
   if (!normalized) return resource.data.value?.items ?? [];
@@ -91,11 +105,16 @@ function cellValue(row: ResourceRecord, column: ResourceColumn) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in rows" :key="row.id" class="hover:bg-subtle/60">
+            <tr
+              v-for="row in rows"
+              :key="row.id"
+              class="cursor-pointer hover:bg-subtle/60"
+              @click="emit('select', row)"
+            >
               <td
                 v-for="column in columns"
                 :key="column.key"
-                class="border-b border-line px-3 py-3 capitalize"
+                class="border-b border-line px-3 py-3"
                 :class="[
                   column.numeric ? 'text-right tabular-nums' : '',
                   column.key === 'id' || column.key.endsWith('_id') ? 'font-mono text-[10px]' : '',
@@ -111,7 +130,11 @@ function cellValue(row: ResourceRecord, column: ResourceColumn) {
                 />
                 <template v-else>{{ cellValue(row, column) }}</template>
               </td>
-              <td v-if="rowActions" class="border-b border-line px-3 py-2 text-right">
+              <td
+                v-if="rowActions"
+                class="border-b border-line px-3 py-2 text-right"
+                @click.stop
+              >
                 <slot name="row-action" :row="row" />
               </td>
             </tr>
@@ -119,6 +142,30 @@ function cellValue(row: ResourceRecord, column: ResourceColumn) {
         </table>
       </div>
       <DataState v-else kind="empty" :message="`No ${title.toLowerCase()} found.`" />
+      <footer
+        v-if="(resource.data.value?.total ?? 0) > limit"
+        class="flex items-center justify-between gap-3 border-t border-line px-3 py-2.5"
+      >
+        <span class="text-[10px] text-muted">Page {{ page }} of {{ pageCount }}</span>
+        <span class="flex gap-2">
+          <UiButton
+            type="button"
+            variant="secondary"
+            :disabled="page <= 1"
+            @click="page -= 1"
+          >
+            Previous
+          </UiButton>
+          <UiButton
+            type="button"
+            variant="secondary"
+            :disabled="page >= pageCount"
+            @click="page += 1"
+          >
+            Next
+          </UiButton>
+        </span>
+      </footer>
     </section>
   </div>
 </template>

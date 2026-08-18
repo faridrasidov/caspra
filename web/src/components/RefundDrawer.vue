@@ -2,8 +2,8 @@
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import { ref, watch } from "vue";
 
-import { apiRequest, type TransactionOut } from "../api/client";
-import { formatMoney, formatTime } from "../utils/format";
+import { refundTransaction, type TransactionOut } from "../api/admin";
+import { formatMoney, formatTime, toMinor } from "../utils/format";
 import AppDrawer from "./AppDrawer.vue";
 import CommandForm from "./CommandForm.vue";
 import FormField from "./FormField.vue";
@@ -26,17 +26,14 @@ watch(
 const refund = useMutation({
   mutationFn: async () => {
     if (!props.transaction) return;
-    await apiRequest(`/admin/api/v1/transactions/${props.transaction.id}/refund`, {
-      method: "POST",
-      body: JSON.stringify({
-        idempotency_key: crypto.randomUUID(),
-        amount_minor: Math.round(Number(amount.value) * 100),
-        reason: reason.value,
-      }),
+    await refundTransaction(props.transaction.id, {
+      amount_minor: toMinor(amount.value),
+      reason: reason.value,
     });
   },
   onSuccess: async () => {
     await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    await queryClient.invalidateQueries({ queryKey: ["transaction-stats"] });
     await queryClient.invalidateQueries({ queryKey: ["overview"] });
     emit("close");
   },
