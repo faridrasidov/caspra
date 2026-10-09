@@ -158,7 +158,8 @@ class LedgerService:
 
         self._assert_currency(from_wallet, payload.currency)
         self._assert_currency(to_wallet, payload.currency)
-        if from_wallet.balance_minor < payload.amount_minor:
+        held = await self._active_hold_total(db, tenant_id, from_wallet.id)
+        if from_wallet.balance_minor - held < payload.amount_minor:
             raise InsufficientFundsError
 
         txn = Transaction(
