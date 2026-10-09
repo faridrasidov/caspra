@@ -1,0 +1,20 @@
+# Install once with: pip install pre-commit && pre-commit install
+# Mirrors the lint/type steps of .github/workflows/ci.yml.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20  # keep in step with ruff in requirements-test.txt
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      # Runs in your project environment so imports resolve; needs
+      # requirements-test.txt installed.
+      - id: mypy
+        name: mypy
+        entry: python -m mypy
+        language: system
+        types: [python]
+        pass_filenames: false
