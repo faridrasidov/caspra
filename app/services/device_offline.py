@@ -13,7 +13,7 @@ from app.core.metrics import set_metric_gauge
 from app.models.device.device import Device
 from app.models.identity.user import User
 from app.models.ledger.hold import OfflineTransaction, OfflineTransactionStatus
-from app.models.ledger.wallet import TransactionType, WalletType
+from app.models.ledger.wallet import WalletType
 from app.models.tenant.organization import OfflinePolicy, Organization
 from app.schemas.device_txn import (
     OfflineConfigOut,
@@ -26,6 +26,7 @@ from app.schemas.device_txn import (
 )
 from app.services.device_card import DeviceCardService
 from app.services.ledger import LedgerService
+from app.services.offline_risk import evaluate_offline_item
 from app.utils.idempotency import canonical_request_hash
 
 
@@ -160,7 +161,7 @@ class DeviceOfflineService:
                     window_start,
                     card_uid=item.card_uid,
                 )
-            disposition, reason = self._validate_item(
+            disposition, reason = evaluate_offline_item(
                 item,
                 policy,
                 now,
@@ -294,38 +295,6 @@ class DeviceOfflineService:
         await db.commit()
         await db.refresh(record)
         return record
-
-    def _validate_item(  # noqa: PLR0911
-        self,
-        item: OfflineQueueItem,
-        policy: OfflinePolicy,
-        now: datetime,
-        window_start: datetime,
-        expected_sequence: int,
-        tenant_total: int,
-        device_total: int,
-        card_total: int,
-    ) -> tuple[OfflineTransactionStatus | None, str | None]:
-        if item.type != TransactionType.DEBIT:
-            return OfflineTransactionStatus.REJECTED, "Only debit operations are allowed offline"
-        if item.occurred_at > now + timedelta(minutes=5):
-            return OfflineTransactionStatus.MANUAL_REVIEW, "Device clock is ahead of server time"
-        if item.occurred_at < window_start:
-            return OfflineTransactionStatus.REJECTED, "Offline operation exceeds queue age limit"
-        if item.sequence_number != expected_sequence:
-            return (
-                OfflineTransactionStatus.MANUAL_REVIEW,
-                f"Expected sequence {expected_sequence}, received {item.sequence_number}",
-            )
-        if item.amount_minor > policy.max_transaction_minor:
-            return OfflineTransactionStatus.REJECTED, "Per-transaction offline limit exceeded"
-        if card_total + item.amount_minor > policy.max_card_total_minor:
-            return OfflineTransactionStatus.MANUAL_REVIEW, "Per-card offline limit exceeded"
-        if device_total + item.amount_minor > policy.max_device_total_minor:
-            return OfflineTransactionStatus.MANUAL_REVIEW, "Per-device offline limit exceeded"
-        if tenant_total + item.amount_minor > policy.max_outage_total_minor:
-            return OfflineTransactionStatus.MANUAL_REVIEW, "Tenant outage limit exceeded"
-        return None, None
 
     async def _create_record(
         self,
