@@ -80,7 +80,9 @@ class DeviceKioskService:
             WalletTopupRequest(
                 amount_minor=session.amount_minor,
                 currency=session.currency,
-                idempotency_key=payload.idempotency_key,
+                # Keyed on the session, not the confirm request, so concurrent or
+                # retried confirms replay one ledger credit instead of posting twice.
+                idempotency_key=session.idempotency_key,
                 description=f"Kiosk top-up {session.id}",
             ),
         )

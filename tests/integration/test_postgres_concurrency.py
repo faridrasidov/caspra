@@ -7,8 +7,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.domain_errors import ValidationError
+from app.models.device.device import Device, Kiosk
+from app.models.device.kiosk_topup import PaymentMethodCode
 from app.models.ledger.wallet import Refund, Transaction, Wallet
+from app.schemas.device_kiosk import KioskTopupConfirmRequest, KioskTopupRequestIn
 from app.schemas.wallet import WalletTopupRequest
+from app.services.device_kiosk import DeviceKioskService
 from app.services.ledger import LedgerService
 
 pytestmark = [
@@ -105,3 +109,46 @@ async def test_concurrent_refunds_cannot_exceed_original(db_engine, seeded_devic
             ).scalar_one()
         )
     assert refunded == 2_000
+
+
+async def test_concurrent_kiosk_confirms_credit_once(db_engine, seeded_device):
+    tenant_id = UUID(seeded_device["tenant_id"])
+    wallet_id = UUID(seeded_device["wallet_id"])
+    session_factory = async_sessionmaker(db_engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        kiosk = Kiosk(tenant_id=tenant_id, name="Lobby kiosk")
+        session.add(kiosk)
+        await session.commit()
+        device = await session.get(Device, UUID(seeded_device["device_id"]))
+        topup = await DeviceKioskService().request_topup(
+            session,
+            device,
+            KioskTopupRequestIn(
+                kiosk_id=kiosk.id,
+                card_uid=seeded_device["card_uid"],
+                amount_minor=1_000,
+                currency="USD",
+                payment_method=PaymentMethodCode.CASH,
+                idempotency_key=uuid4(),
+            ),
+        )
+        topup_id = topup.id
+
+    async def confirm_once():
+        async with session_factory() as session:
+            device = await session.get(Device, UUID(seeded_device["device_id"]))
+            return await DeviceKioskService().confirm_topup(
+                session,
+                device,
+                KioskTopupConfirmRequest(session_id=topup_id, idempotency_key=uuid4()),
+            )
+
+    first, second = await asyncio.gather(confirm_once(), confirm_once())
+    assert first.transaction_id == second.transaction_id
+
+    async with session_factory() as session:
+        balance = (
+            await session.execute(select(Wallet.balance_minor).where(Wallet.id == wallet_id))
+        ).scalar_one()
+    assert balance == int(seeded_device["balance_minor"]) + 1_000
