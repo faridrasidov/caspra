@@ -146,10 +146,11 @@ def register_http_controls(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id = request_id_context.get() or str(uuid4())
-        logger.exception(
+        logger.error(
             "Unhandled exception request_id=%s path=%s",
             request_id,
             request.url.path,
+            exc_info=exc,
         )
         return _problem(
             request,

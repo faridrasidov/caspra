@@ -3,13 +3,13 @@
 """Export the OpenAPI schema for SDK generation in separate repos."""
 
 import json
-import sys
 from pathlib import Path
+import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from app.main import app
+from app.main import app  # noqa: E402
 
 OUTPUT = ROOT / "openapi.json"
 
