@@ -8,6 +8,7 @@ import ipaddress
 import json
 import secrets
 import socket
+from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -49,7 +50,7 @@ class WebhookService(TenantScopedService[Webhook]):
         return list(SUBSCRIBABLE_EVENT_TYPES)
 
     async def enqueue(
-        self, db: AsyncSession, tenant_id: UUID, event_type: str, payload: dict
+        self, db: AsyncSession, tenant_id: UUID, event_type: str, payload: dict[str, Any]
     ) -> list[WebhookDelivery]:
         """Add outbox rows without committing, so callers can commit atomically."""
         if event_type not in SUBSCRIBABLE_EVENT_TYPES:
@@ -77,7 +78,7 @@ class WebhookService(TenantScopedService[Webhook]):
         return deliveries
 
     async def dispatch(
-        self, db: AsyncSession, tenant_id: UUID, event_type: str, payload: dict
+        self, db: AsyncSession, tenant_id: UUID, event_type: str, payload: dict[str, Any]
     ) -> list[WebhookDelivery]:
         """Compatibility helper for non-transactional callers."""
         deliveries = await self.enqueue(db, tenant_id, event_type, payload)

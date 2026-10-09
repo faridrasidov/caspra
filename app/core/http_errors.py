@@ -1,8 +1,10 @@
+from collections.abc import Awaitable, Callable
 import logging
 import time
+from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -25,9 +27,9 @@ def _problem(
     title: str,
     detail: str,
     request_id: str,
-    errors: list[dict] | None = None,
+    errors: list[dict[str, Any]] | None = None,
 ) -> JSONResponse:
-    body: dict = {
+    body: dict[str, Any] = {
         "type": f"https://caspra.dev/problems/{code}",
         "title": title,
         "status": status_code,
@@ -48,7 +50,9 @@ def _problem(
 
 def register_http_controls(app: FastAPI) -> None:
     @app.middleware("http")
-    async def request_context(request: Request, call_next):
+    async def request_context(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request_id = request.headers.get("X-Request-Id") or str(uuid4())
         token = request_id_context.set(request_id)
         audit_token = None
@@ -140,7 +144,7 @@ def register_http_controls(app: FastAPI) -> None:
             title="Request Validation Error",
             detail="The request payload or parameters are invalid",
             request_id=request_id,
-            errors=exc.errors(),
+            errors=list(exc.errors()),
         )
 
     @app.exception_handler(Exception)

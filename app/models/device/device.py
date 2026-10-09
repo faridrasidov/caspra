@@ -54,8 +54,8 @@ class Card(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("tenant_id", "uid", name="uq_cards_tenant_uid"),)
 
     uid: Mapped[str] = mapped_column(VARCHAR(120), nullable=False, index=True)
-    type: Mapped[CardType] = mapped_column(VARCHAR(20), nullable=False, default=CardType.RFID.value)
-    status: Mapped[CardStatus] = mapped_column(
+    type: Mapped[str] = mapped_column(VARCHAR(20), nullable=False, default=CardType.RFID.value)
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=CardStatus.ACTIVE.value
     )
     customer_id: Mapped[PyUUID | None] = mapped_column(
@@ -73,10 +73,8 @@ class Device(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(VARCHAR(200), nullable=False)
     serial: Mapped[str | None] = mapped_column(VARCHAR(120), nullable=True, index=True)
-    type: Mapped[DeviceType] = mapped_column(
-        VARCHAR(20), nullable=False, default=DeviceType.READER.value
-    )
-    status: Mapped[DeviceStatus] = mapped_column(
+    type: Mapped[str] = mapped_column(VARCHAR(20), nullable=False, default=DeviceType.READER.value)
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=DeviceStatus.ACTIVE.value
     )
     location_id: Mapped[PyUUID | None] = mapped_column(
@@ -120,7 +118,7 @@ class DeviceEvent(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         index=True,
     )
     type: Mapped[str] = mapped_column(VARCHAR(80), nullable=False)
-    level: Mapped[DeviceEventLevel] = mapped_column(
+    level: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=DeviceEventLevel.INFO.value
     )
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -132,7 +130,7 @@ class Kiosk(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     __tablename__ = "kiosks"
 
     name: Mapped[str] = mapped_column(VARCHAR(200), nullable=False)
-    status: Mapped[KioskStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=KioskStatus.OFFLINE.value
     )
     location_id: Mapped[PyUUID | None] = mapped_column(
@@ -154,7 +152,7 @@ class KioskLog(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    level: Mapped[DeviceEventLevel] = mapped_column(
+    level: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=DeviceEventLevel.INFO.value
     )
     message: Mapped[str] = mapped_column(VARCHAR(2000), nullable=False)

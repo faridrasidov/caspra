@@ -75,7 +75,7 @@ class ExternalTopupSession(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Bas
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    status: Mapped[ExternalTopupStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=ExternalTopupStatus.STARTED.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)

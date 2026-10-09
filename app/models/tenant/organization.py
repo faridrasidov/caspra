@@ -52,9 +52,7 @@ class Organization(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(VARCHAR(200), nullable=False)
     slug: Mapped[str] = mapped_column(VARCHAR(120), nullable=False, unique=True, index=True)
-    status: Mapped[OrgStatus] = mapped_column(
-        VARCHAR(20), nullable=False, default=OrgStatus.ACTIVE.value
-    )
+    status: Mapped[str] = mapped_column(VARCHAR(20), nullable=False, default=OrgStatus.ACTIVE.value)
     default_currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False, default="USD")
 
 
@@ -85,7 +83,7 @@ class Membership(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         nullable=True,
         index=True,
     )
-    status: Mapped[MembershipStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=MembershipStatus.ACTIVE.value
     )
 
@@ -98,7 +96,7 @@ class Location(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(VARCHAR(200), nullable=False)
     address: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
     timezone: Mapped[str] = mapped_column(VARCHAR(64), nullable=False, default="UTC")
-    status: Mapped[LocationStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=LocationStatus.ACTIVE.value
     )
 
@@ -175,7 +173,7 @@ class Notification(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
     title: Mapped[str] = mapped_column(VARCHAR(200), nullable=False)
     message: Mapped[str] = mapped_column(VARCHAR(2000), nullable=False)
-    level: Mapped[NotificationLevel] = mapped_column(
+    level: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=NotificationLevel.INFO.value
     )
     read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

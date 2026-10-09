@@ -7,10 +7,11 @@ from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError
+from app.models.core.mixins import TenantMixin
 from app.utils.pagination import Page, paginate_async_query
 
 
-class TenantScopedService[ModelT]:
+class TenantScopedService[ModelT: TenantMixin]:
     """Base for services whose model carries a ``tenant_id`` column.
 
     Provides reusable, tenant-isolated fetch and pagination helpers so every
@@ -23,7 +24,8 @@ class TenantScopedService[ModelT]:
     async def get_owned(self, db: AsyncSession, obj_id: UUID, tenant_id: UUID) -> ModelT:
         """Fetch a row by id scoped to the tenant or raise ``NotFoundError``."""
         stmt = select(self.model).where(
-            self.model.id == obj_id,
+            # Every tenant-scoped model also uses UUIDPrimaryKeyMixin; the bound can't express both.
+            self.model.id == obj_id,  # type: ignore[attr-defined]
             self.model.tenant_id == tenant_id,
         )
         result = await db.execute(stmt)

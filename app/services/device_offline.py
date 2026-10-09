@@ -13,7 +13,7 @@ from app.core.metrics import set_metric_gauge
 from app.models.device.device import Device
 from app.models.identity.user import User
 from app.models.ledger.hold import OfflineTransaction, OfflineTransactionStatus
-from app.models.ledger.wallet import WalletType
+from app.models.ledger.wallet import Transaction, WalletType
 from app.models.tenant.organization import OfflinePolicy, Organization
 from app.schemas.device_txn import (
     OfflineConfigOut,
@@ -374,7 +374,9 @@ class DeviceOfflineService:
             error=error,
         )
 
-    async def _apply_item(self, db: AsyncSession, device: Device, item: OfflineQueueItem):
+    async def _apply_item(
+        self, db: AsyncSession, device: Device, item: OfflineQueueItem
+    ) -> Transaction:
         card = await self._cards.get_card_by_uid(db, device.tenant_id, item.card_uid)
         wallet = await self._cards.resolve_wallet(
             db, device.tenant_id, card, WalletType.CREDIT, item.currency.upper()

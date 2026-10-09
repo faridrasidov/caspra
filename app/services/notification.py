@@ -1,8 +1,9 @@
 # app/services/notification.py
 
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import update
+from sqlalchemy import CursorResult, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant.organization import Notification
@@ -29,6 +30,6 @@ class NotificationService(TenantScopedService[Notification]):
             .where(Notification.tenant_id == tenant_id, Notification.read.is_(False))
             .values(read=True)
         )
-        result = await db.execute(stmt)
+        result = cast("CursorResult[Any]", await db.execute(stmt))
         await db.commit()
         return result.rowcount or 0

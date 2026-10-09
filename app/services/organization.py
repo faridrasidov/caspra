@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.core.security import hash_password
+from app.models.core.mixins import TenantMixin
 from app.models.device.device import Card, Device
 from app.models.identity.user import User
 from app.models.ledger.wallet import Customer, Transaction
@@ -43,7 +44,7 @@ class OrganizationService:
     async def get_stats(self, db: AsyncSession, tenant_id: UUID) -> OrgStatsOut:
         """Return tenant-scoped resource counts for the public API."""
 
-        async def _count(model: type) -> int:
+        async def _count(model: type[TenantMixin]) -> int:
             stmt = select(func.count()).select_from(model).where(model.tenant_id == tenant_id)
             return int((await db.execute(stmt)).scalar_one())
 

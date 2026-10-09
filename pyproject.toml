@@ -244,3 +244,33 @@ concurrency = ["greenlet", "thread"]   # SQLAlchemy async runs code inside green
 fail_under   = 80    # raise as Phase 2 test coverage lands; never lower it
 show_missing = true
 skip_covered = true
+
+
+# =============================================================================
+#  MYPY — type checker
+# =============================================================================
+[tool.mypy]
+python_version         = "3.13"
+files                  = ["app"]
+plugins                = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_ignores    = true
+warn_redundant_casts   = true
+
+# Business logic and core plumbing: the strict-mode flags (mypy only allows
+# `strict` globally, so they are listed here per package).
+[[tool.mypy.overrides]]
+module = ["app.services.*", "app.core.*", "app.utils.*"]
+check_untyped_defs       = true
+disallow_untyped_defs    = true
+disallow_incomplete_defs = true
+disallow_untyped_calls   = true
+disallow_any_generics    = true
+warn_return_any          = true
+
+# Route handlers are annotated with the response schema but return ORM
+# objects; FastAPI converts them through `response_model`. That is the
+# framework's convention, not a bug.
+[[tool.mypy.overrides]]
+module = ["app.api.*"]
+disable_error_code = ["return-value"]

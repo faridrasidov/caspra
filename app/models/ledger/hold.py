@@ -65,7 +65,7 @@ class Hold(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    status: Mapped[HoldStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=HoldStatus.PREAUTH.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
@@ -139,7 +139,7 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
     card_uid: Mapped[str] = mapped_column(VARCHAR(120), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    status: Mapped[OfflineTransactionStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=OfflineTransactionStatus.PENDING.value
     )
     applied_transaction_id: Mapped[PyUUID | None] = mapped_column(

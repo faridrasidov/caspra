@@ -70,7 +70,7 @@ class DeviceToken(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         index=True,
     )
     token_hash: Mapped[str] = mapped_column(VARCHAR(255), nullable=False, unique=True, index=True)
-    type: Mapped[DeviceTokenType] = mapped_column(
+    type: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=DeviceTokenType.ACCESS.value
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -110,7 +110,7 @@ class FirmwareUpdate(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    status: Mapped[FirmwareUpdateStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=FirmwareUpdateStatus.PENDING.value
     )
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -128,8 +128,8 @@ class DeviceCommand(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    type: Mapped[DeviceCommandType] = mapped_column(VARCHAR(30), nullable=False)
-    status: Mapped[DeviceCommandStatus] = mapped_column(
+    type: Mapped[str] = mapped_column(VARCHAR(30), nullable=False)
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=DeviceCommandStatus.PENDING.value
     )
     payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -175,6 +175,6 @@ class DeviceHeartbeat(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     last_seen: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    status: Mapped[HeartbeatStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=HeartbeatStatus.ONLINE.value
     )

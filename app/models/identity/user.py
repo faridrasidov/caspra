@@ -26,7 +26,7 @@ class User(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     email: Mapped[str] = mapped_column(VARCHAR(320), nullable=False, unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
     full_name: Mapped[str | None] = mapped_column(VARCHAR(200), nullable=True)
-    status: Mapped[UserStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=UserStatus.ACTIVE.value
     )
     role_id: Mapped[PyUUID | None] = mapped_column(

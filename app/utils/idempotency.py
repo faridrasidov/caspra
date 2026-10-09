@@ -4,18 +4,19 @@ from datetime import date, datetime
 import enum
 import hashlib
 import json
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError
 
 
-def canonical_request_hash(operation: str, **values) -> str:
+def canonical_request_hash(operation: str, **values: Any) -> str:
     """Create a stable fingerprint for an idempotent operation."""
 
-    def normalize(value):
+    def normalize(value: Any) -> Any:
         if isinstance(value, (UUID, date, datetime, enum.Enum)):
             return str(value)
         if isinstance(value, dict):
@@ -34,13 +35,13 @@ def canonical_request_hash(operation: str, **values) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-async def find_existing_by_idempotency_key(
+async def find_existing_by_idempotency_key[ModelT](
     db: AsyncSession,
-    model: type,
+    model: type[ModelT],
     idempotency_key: UUID,
     tenant_id: UUID,
     request_hash: str | None = None,
-):
+) -> ModelT | None:
     """Lock and return an existing row for a replayed idempotency key, if any.
 
     PostgreSQL's unique constraint remains the source of truth, while the
@@ -54,12 +55,12 @@ async def find_existing_by_idempotency_key(
         lock_key = int.from_bytes(lock_digest[:8], byteorder="big", signed=True)
         await db.execute(select(func.pg_advisory_xact_lock(lock_key)))
 
-    stmt = select(model).where(
+    stmt: Select[tuple[ModelT]] = select(model).where(
         model.idempotency_key == idempotency_key,  # type: ignore[attr-defined]
         model.tenant_id == tenant_id,  # type: ignore[attr-defined]
     )
     result = await db.execute(stmt)
-    existing = result.scalars().first()
+    existing: ModelT | None = result.scalars().first()
     if existing is not None and request_hash is not None:
         existing_hash = getattr(existing, "request_hash", None)
         if existing_hash is not None and existing_hash != request_hash:

@@ -1,6 +1,7 @@
 # app/models/core/mixins.py
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 import uuid
 from uuid import UUID as PyUUID
 
@@ -38,6 +39,9 @@ class TimestampMixin:
 
 class TenantMixin:
     """Adds a tenant_id FK to organizations for tenant-scoped rows."""
+
+    if TYPE_CHECKING:
+        __tablename__: str
 
     @declared_attr
     def tenant_id(cls) -> Mapped[PyUUID]:

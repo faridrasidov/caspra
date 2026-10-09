@@ -58,12 +58,12 @@ def render_metrics() -> PlainTextResponse:
             lines.append(f"# TYPE {metric_name} counter")
             declared.add(metric_name)
         lines.append(f"{metric_name}{_labels_text(labels)} {value}")
-    for (name, labels), value in sorted(gauges):
+    for (name, labels), gauge_value in sorted(gauges):
         metric_name = f"caspra_{name}"
         if metric_name not in declared:
             lines.append(f"# TYPE {metric_name} gauge")
             declared.add(metric_name)
-        lines.append(f"{metric_name}{_labels_text(labels)} {value}")
+        lines.append(f"{metric_name}{_labels_text(labels)} {gauge_value}")
     for (name, labels), (count, total) in sorted(observations):
         metric_name = f"caspra_{name}"
         if metric_name not in declared:

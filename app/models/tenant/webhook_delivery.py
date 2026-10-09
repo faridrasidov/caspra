@@ -43,7 +43,7 @@ class WebhookDelivery(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
     event_type: Mapped[str] = mapped_column(VARCHAR(120), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    status: Mapped[WebhookDeliveryStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=WebhookDeliveryStatus.PENDING.value, index=True
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

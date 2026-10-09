@@ -46,6 +46,7 @@ jobs:
       - run: python -m pip install -r requirements-test.txt
       - run: ruff check app tests
       - run: ruff format --check app tests
+      - run: mypy
       - run: pytest --cov --cov-report=term
       - run: alembic upgrade head
       - run: python scripts/gen_openapi.py

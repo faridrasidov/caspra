@@ -82,7 +82,7 @@ class Customer(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     full_name: Mapped[str | None] = mapped_column(VARCHAR(200), nullable=True)
     email: Mapped[str | None] = mapped_column(VARCHAR(320), nullable=True, index=True)
     phone: Mapped[str | None] = mapped_column(VARCHAR(40), nullable=True)
-    status: Mapped[CustomerStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=CustomerStatus.ACTIVE.value
     )
 
@@ -107,10 +107,8 @@ class Wallet(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
     balance_minor: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    type: Mapped[WalletType] = mapped_column(
-        VARCHAR(20), nullable=False, default=WalletType.CREDIT.value
-    )
-    status: Mapped[WalletStatus] = mapped_column(
+    type: Mapped[str] = mapped_column(VARCHAR(20), nullable=False, default=WalletType.CREDIT.value)
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=WalletStatus.ACTIVE.value
     )
 
@@ -134,9 +132,9 @@ class LedgerAccount(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
 
     code: Mapped[str] = mapped_column(VARCHAR(160), nullable=False)
-    type: Mapped[LedgerAccountType] = mapped_column(VARCHAR(40), nullable=False)
+    type: Mapped[str] = mapped_column(VARCHAR(40), nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    status: Mapped[LedgerAccountStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=LedgerAccountStatus.ACTIVE.value
     )
     wallet_id: Mapped[PyUUID | None] = mapped_column(
@@ -168,10 +166,10 @@ class Transaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
-    type: Mapped[TransactionType] = mapped_column(VARCHAR(20), nullable=False)
+    type: Mapped[str] = mapped_column(VARCHAR(20), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    status: Mapped[TransactionStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=TransactionStatus.POSTED.value
     )
     wallet_id: Mapped[PyUUID | None] = mapped_column(
@@ -239,7 +237,7 @@ class LedgerEntry(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         nullable=True,
         index=True,
     )
-    direction: Mapped[LedgerDirection] = mapped_column(VARCHAR(10), nullable=False)
+    direction: Mapped[str] = mapped_column(VARCHAR(10), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
 
@@ -273,7 +271,7 @@ class Refund(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
     reason: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
-    status: Mapped[RefundStatus] = mapped_column(
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=RefundStatus.COMPLETED.value
     )
 

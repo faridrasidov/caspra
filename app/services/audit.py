@@ -1,5 +1,6 @@
 # app/services/audit.py
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +32,7 @@ class AuditService(TenantScopedService[AuditLog]):
         action: str,
         target_type: str | None = None,
         target_id: str | None = None,
-        payload: dict | None = None,
+        payload: dict[str, Any] | None = None,
     ) -> AuditLog:
         """Append an audit entry. Caller is responsible for committing."""
         entry = AuditLog(

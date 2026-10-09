@@ -30,7 +30,7 @@ class PaymentMethod(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     __tablename__ = "payment_methods"
     __table_args__ = (UniqueConstraint("tenant_id", "code", name="uq_payment_methods_tenant_code"),)
 
-    code: Mapped[PaymentMethodCode] = mapped_column(VARCHAR(20), nullable=False)
+    code: Mapped[str] = mapped_column(VARCHAR(20), nullable=False)
     label: Mapped[str] = mapped_column(VARCHAR(100), nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
@@ -63,8 +63,8 @@ class KioskTopupSession(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(VARCHAR(3), nullable=False)
-    payment_method: Mapped[PaymentMethodCode] = mapped_column(VARCHAR(20), nullable=False)
-    status: Mapped[KioskTopupStatus] = mapped_column(
+    payment_method: Mapped[str] = mapped_column(VARCHAR(20), nullable=False)
+    status: Mapped[str] = mapped_column(
         VARCHAR(20), nullable=False, default=KioskTopupStatus.REQUESTED.value
     )
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
