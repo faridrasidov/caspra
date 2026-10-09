@@ -231,3 +231,16 @@ quote-style               = "double"
 indent-style              = "space"
 line-ending               = "auto"
 skip-magic-trailing-comma = false   # trailing comma = intent to expand; respect it
+
+# =============================================================================
+#  COVERAGE
+# =============================================================================
+[tool.coverage.run]
+source = ["app"]
+branch = true
+concurrency = ["greenlet", "thread"]   # SQLAlchemy async runs code inside greenlets
+
+[tool.coverage.report]
+fail_under   = 75    # raise as Phase 2 test coverage lands; never lower it
+show_missing = true
+skip_covered = true
