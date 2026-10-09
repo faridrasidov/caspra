@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -34,16 +34,8 @@ async def list_wallets(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedWalletOut:
     """List wallets for the caller's tenant."""
-    try:
-        result = await WalletService().list_wallets(db, current_admin.tenant_id, page, limit)
-        return PaginatedWalletOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await WalletService().list_wallets(db, current_admin.tenant_id, page, limit)
+    return PaginatedWalletOut(**result)
 
 
 @router.post("", response_model=WalletOut, status_code=status.HTTP_201_CREATED)
@@ -53,15 +45,7 @@ async def create_wallet(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> WalletOut:
     """Create a wallet for a customer."""
-    try:
-        return await WalletService().create_wallet(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await WalletService().create_wallet(db, current_admin.tenant_id, payload)
 
 
 @router.post("/transfer", response_model=TransactionOut)
@@ -73,15 +57,7 @@ async def transfer(
     ],
 ) -> TransactionOut:
     """Transfer value between two wallets (idempotent, double-entry)."""
-    try:
-        return await LedgerService().transfer(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LedgerService().transfer(db, current_admin.tenant_id, payload)
 
 
 @router.get("/{wallet_id}", response_model=WalletOut)
@@ -91,15 +67,7 @@ async def get_wallet(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> WalletOut:
     """Get a single wallet."""
-    try:
-        return await WalletService().get_wallet(db, current_admin.tenant_id, wallet_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await WalletService().get_wallet(db, current_admin.tenant_id, wallet_id)
 
 
 @router.get("/{wallet_id}/balance", response_model=WalletBalanceOut)
@@ -109,20 +77,12 @@ async def get_balance(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> WalletBalanceOut:
     """Get a wallet's current balance."""
-    try:
-        wallet = await LedgerService().get_balance(db, current_admin.tenant_id, wallet_id)
-        return WalletBalanceOut(
-            wallet_id=wallet.id,
-            currency=wallet.currency,
-            balance_minor=wallet.balance_minor,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    wallet = await LedgerService().get_balance(db, current_admin.tenant_id, wallet_id)
+    return WalletBalanceOut(
+        wallet_id=wallet.id,
+        currency=wallet.currency,
+        balance_minor=wallet.balance_minor,
+    )
 
 
 @router.post("/{wallet_id}/topup", response_model=TransactionOut)
@@ -135,15 +95,7 @@ async def topup(
     ],
 ) -> TransactionOut:
     """Credit a wallet (idempotent)."""
-    try:
-        return await LedgerService().topup(db, current_admin.tenant_id, wallet_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LedgerService().topup(db, current_admin.tenant_id, wallet_id, payload)
 
 
 @router.post("/{wallet_id}/deduct", response_model=TransactionOut)
@@ -156,12 +108,4 @@ async def deduct(
     ],
 ) -> TransactionOut:
     """Debit a wallet (idempotent, balance-checked under lock)."""
-    try:
-        return await LedgerService().deduct(db, current_admin.tenant_id, wallet_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LedgerService().deduct(db, current_admin.tenant_id, wallet_id, payload)

@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -28,16 +28,8 @@ async def list_products(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedProductOut:
     """List products for the caller's tenant."""
-    try:
-        result = await ProductService().list_products(db, current_admin.tenant_id, page, limit)
-        return PaginatedProductOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await ProductService().list_products(db, current_admin.tenant_id, page, limit)
+    return PaginatedProductOut(**result)
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
@@ -47,15 +39,7 @@ async def create_product(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> ProductOut:
     """Create a product."""
-    try:
-        return await ProductService().create_product(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ProductService().create_product(db, current_admin.tenant_id, payload)
 
 
 @router.get("/{product_id}", response_model=ProductOut)
@@ -65,15 +49,7 @@ async def get_product(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> ProductOut:
     """Get a single product."""
-    try:
-        return await ProductService().get_product(db, current_admin.tenant_id, product_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ProductService().get_product(db, current_admin.tenant_id, product_id)
 
 
 @router.patch("/{product_id}", response_model=ProductOut)
@@ -84,17 +60,7 @@ async def update_product(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> ProductOut:
     """Update a product."""
-    try:
-        return await ProductService().update_product(
-            db, current_admin.tenant_id, product_id, payload
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ProductService().update_product(db, current_admin.tenant_id, product_id, payload)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -104,12 +70,4 @@ async def delete_product(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> None:
     """Delete a product."""
-    try:
-        await ProductService().delete_product(db, current_admin.tenant_id, product_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    await ProductService().delete_product(db, current_admin.tenant_id, product_id)

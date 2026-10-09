@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -27,15 +27,7 @@ async def get_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> OrgSettingsOut:
     """Get the tenant's general settings."""
-    try:
-        return await OrganizationService().get_settings(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await OrganizationService().get_settings(db, current_admin.tenant_id)
 
 
 @router.put("", response_model=OrgSettingsOut)
@@ -45,15 +37,7 @@ async def update_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> OrgSettingsOut:
     """Update the tenant's general settings."""
-    try:
-        return await OrganizationService().update_settings(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await OrganizationService().update_settings(db, current_admin.tenant_id, payload)
 
 
 @router.get("/billing", response_model=BillingSettingsOut)
@@ -62,15 +46,7 @@ async def get_billing_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> BillingSettingsOut:
     """Get the tenant's billing settings."""
-    try:
-        return await SettingsService().get_billing(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await SettingsService().get_billing(db, current_admin.tenant_id)
 
 
 @router.put("/billing", response_model=BillingSettingsOut)
@@ -80,15 +56,7 @@ async def update_billing_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> BillingSettingsOut:
     """Update the tenant's billing settings."""
-    try:
-        return await SettingsService().update_billing(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await SettingsService().update_billing(db, current_admin.tenant_id, payload)
 
 
 @router.get("/security", response_model=SecuritySettingsOut)
@@ -97,15 +65,7 @@ async def get_security_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> SecuritySettingsOut:
     """Get the tenant's security settings."""
-    try:
-        return await SettingsService().get_security(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await SettingsService().get_security(db, current_admin.tenant_id)
 
 
 @router.put("/security", response_model=SecuritySettingsOut)
@@ -115,12 +75,4 @@ async def update_security_settings(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> SecuritySettingsOut:
     """Update the tenant's security settings."""
-    try:
-        return await SettingsService().update_security(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await SettingsService().update_security(db, current_admin.tenant_id, payload)

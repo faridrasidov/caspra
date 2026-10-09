@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -28,15 +28,7 @@ async def verify_card(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> CardVerifyOut:
     """Verify a card's status (active/blocked/expired) within the device's tenant."""
-    try:
-        return await DeviceCardService().verify(db, device.tenant_id, payload.card_uid)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceCardService().verify(db, device.tenant_id, payload.card_uid)
 
 
 @router.post("/info", response_model=CardInfoOut)
@@ -46,15 +38,7 @@ async def card_info(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> CardInfoOut:
     """Return minimal card info for a UID."""
-    try:
-        return await DeviceCardService().info(db, device.tenant_id, payload.card_uid)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceCardService().info(db, device.tenant_id, payload.card_uid)
 
 
 @router.post("/balance", response_model=CardBalanceOut)
@@ -64,15 +48,7 @@ async def card_balance(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> CardBalanceOut:
     """Return balances across all of the cardholder's wallets."""
-    try:
-        return await DeviceCardService().balance(db, device.tenant_id, payload.card_uid)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceCardService().balance(db, device.tenant_id, payload.card_uid)
 
 
 @router.post("/assign-temp", response_model=TempAssignmentOut, status_code=status.HTTP_201_CREATED)
@@ -82,18 +58,10 @@ async def assign_temp_card(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> TempAssignmentOut:
     """Assign an anonymous temporary card to a session."""
-    try:
-        assignment = await DeviceCardService().assign_temp(
-            db, device.tenant_id, payload.card_uid, payload.session_ref
-        )
-        return TempAssignmentOut.model_validate(assignment)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    assignment = await DeviceCardService().assign_temp(
+        db, device.tenant_id, payload.card_uid, payload.session_ref
+    )
+    return TempAssignmentOut.model_validate(assignment)
 
 
 @router.post("/unassign-temp", response_model=TempAssignmentOut)
@@ -103,13 +71,5 @@ async def unassign_temp_card(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> TempAssignmentOut:
     """Release a temporary card assignment."""
-    try:
-        assignment = await DeviceCardService().unassign_temp(db, device.tenant_id, payload.card_uid)
-        return TempAssignmentOut.model_validate(assignment)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    assignment = await DeviceCardService().unassign_temp(db, device.tenant_id, payload.card_uid)
+    return TempAssignmentOut.model_validate(assignment)

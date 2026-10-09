@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -32,16 +32,8 @@ async def list_products(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedPublicProductOut:
     """List products for the API key's tenant."""
-    try:
-        result = await ProductService().list_products(db, ctx.tenant_id, page, limit)
-        return PaginatedPublicProductOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await ProductService().list_products(db, ctx.tenant_id, page, limit)
+    return PaginatedPublicProductOut(**result)
 
 
 @router.get("/categories", response_model=PaginatedProductCategoryOut)
@@ -52,16 +44,8 @@ async def list_categories(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedProductCategoryOut:
     """List product categories for the API key's tenant."""
-    try:
-        result = await ProductCategoryService().list_categories(db, ctx.tenant_id, page, limit)
-        return PaginatedProductCategoryOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await ProductCategoryService().list_categories(db, ctx.tenant_id, page, limit)
+    return PaginatedProductCategoryOut(**result)
 
 
 @router.get("/{product_id}", response_model=PublicProductOut)
@@ -71,12 +55,4 @@ async def get_product(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.PRODUCTS_READ))],
 ) -> PublicProductOut:
     """Get a single product."""
-    try:
-        return await ProductService().get_product(db, ctx.tenant_id, product_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ProductService().get_product(db, ctx.tenant_id, product_id)

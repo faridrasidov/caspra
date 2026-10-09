@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -30,15 +30,7 @@ async def start_topup(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TOPUP_WRITE))],
 ) -> ExternalTopupSessionOut:
     """Start an external/mobile top-up session (idempotent, replay-safe)."""
-    try:
-        return await ExternalTopupService().start(db, ctx.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ExternalTopupService().start(db, ctx.tenant_id, payload)
 
 
 @router.post("/{session_id}/confirm", response_model=ExternalTopupSessionOut)
@@ -49,15 +41,7 @@ async def confirm_topup(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TOPUP_WRITE))],
 ) -> ExternalTopupSessionOut:
     """Confirm a top-up after external payment success (credits via the ledger)."""
-    try:
-        return await ExternalTopupService().confirm(db, ctx.tenant_id, session_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ExternalTopupService().confirm(db, ctx.tenant_id, session_id, payload)
 
 
 @router.post("/{session_id}/cancel", response_model=ExternalTopupSessionOut)
@@ -67,15 +51,7 @@ async def cancel_topup(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TOPUP_WRITE))],
 ) -> ExternalTopupSessionOut:
     """Cancel a started top-up session."""
-    try:
-        return await ExternalTopupService().cancel(db, ctx.tenant_id, session_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ExternalTopupService().cancel(db, ctx.tenant_id, session_id)
 
 
 @router.get("/{session_id}", response_model=ExternalTopupSessionOut)
@@ -85,12 +61,4 @@ async def get_topup(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TOPUP_WRITE))],
 ) -> ExternalTopupSessionOut:
     """Get a top-up session by id."""
-    try:
-        return await ExternalTopupService().get_session(db, ctx.tenant_id, session_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ExternalTopupService().get_session(db, ctx.tenant_id, session_id)

@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -28,16 +28,8 @@ async def list_locations(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedLocationOut:
     """List locations for the caller's tenant."""
-    try:
-        result = await LocationService().list_locations(db, current_admin.tenant_id, page, limit)
-        return PaginatedLocationOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await LocationService().list_locations(db, current_admin.tenant_id, page, limit)
+    return PaginatedLocationOut(**result)
 
 
 @router.post("", response_model=LocationOut, status_code=status.HTTP_201_CREATED)
@@ -47,15 +39,7 @@ async def create_location(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> LocationOut:
     """Create a location."""
-    try:
-        return await LocationService().create_location(db, current_admin.tenant_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LocationService().create_location(db, current_admin.tenant_id, payload)
 
 
 @router.get("/{location_id}", response_model=LocationOut)
@@ -65,15 +49,7 @@ async def get_location(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> LocationOut:
     """Get a single location."""
-    try:
-        return await LocationService().get_location(db, current_admin.tenant_id, location_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LocationService().get_location(db, current_admin.tenant_id, location_id)
 
 
 @router.patch("/{location_id}", response_model=LocationOut)
@@ -84,17 +60,9 @@ async def update_location(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> LocationOut:
     """Update a location."""
-    try:
-        return await LocationService().update_location(
-            db, current_admin.tenant_id, location_id, payload
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LocationService().update_location(
+        db, current_admin.tenant_id, location_id, payload
+    )
 
 
 @router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -104,12 +72,4 @@ async def delete_location(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> None:
     """Delete a location."""
-    try:
-        await LocationService().delete_location(db, current_admin.tenant_id, location_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    await LocationService().delete_location(db, current_admin.tenant_id, location_id)

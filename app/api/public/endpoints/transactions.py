@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -41,24 +41,16 @@ async def list_transactions(
 
     Supports filtering by wallet, customer, or device.
     """
-    try:
-        result = await TransactionService().list_transactions(
-            db,
-            ctx.tenant_id,
-            page,
-            limit,
-            wallet_id=wallet_id,
-            customer_id=customer_id,
-            device_id=device_id,
-        )
-        return PaginatedPublicTransactionOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await TransactionService().list_transactions(
+        db,
+        ctx.tenant_id,
+        page,
+        limit,
+        wallet_id=wallet_id,
+        customer_id=customer_id,
+        device_id=device_id,
+    )
+    return PaginatedPublicTransactionOut(**result)
 
 
 @router.post("/topup", response_model=PublicTransactionOut, status_code=status.HTTP_201_CREATED)
@@ -68,25 +60,17 @@ async def topup(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TOPUP_WRITE))],
 ) -> PublicTransactionOut:
     """Credit a wallet (idempotent, routed through the ledger)."""
-    try:
-        return await LedgerService().topup(
-            db,
-            ctx.tenant_id,
-            payload.wallet_id,
-            WalletTopupRequest(
-                amount_minor=payload.amount_minor,
-                currency=payload.currency,
-                idempotency_key=payload.idempotency_key,
-                description=payload.description,
-            ),
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LedgerService().topup(
+        db,
+        ctx.tenant_id,
+        payload.wallet_id,
+        WalletTopupRequest(
+            amount_minor=payload.amount_minor,
+            currency=payload.currency,
+            idempotency_key=payload.idempotency_key,
+            description=payload.description,
+        ),
+    )
 
 
 @router.post(
@@ -101,22 +85,14 @@ async def refund_transaction(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TRANSACTIONS_WRITE))],
 ) -> PublicRefundOut:
     """Refund a debit transaction (idempotent compensating entry)."""
-    try:
-        return await LedgerService().refund(
-            db,
-            ctx.tenant_id,
-            transaction_id,
-            payload.idempotency_key,
-            payload.amount_minor,
-            payload.reason,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await LedgerService().refund(
+        db,
+        ctx.tenant_id,
+        transaction_id,
+        payload.idempotency_key,
+        payload.amount_minor,
+        payload.reason,
+    )
 
 
 @router.get("/{transaction_id}", response_model=PublicTransactionOut)
@@ -126,12 +102,4 @@ async def get_transaction(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.TRANSACTIONS_READ))],
 ) -> PublicTransactionOut:
     """Get a single transaction."""
-    try:
-        return await TransactionService().get_transaction(db, ctx.tenant_id, transaction_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await TransactionService().get_transaction(db, ctx.tenant_id, transaction_id)

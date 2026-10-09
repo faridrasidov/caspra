@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -24,15 +24,7 @@ async def get_org(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.ORG_READ))],
 ) -> PublicOrgOut:
     """Return public-safe info about the API key's organization."""
-    try:
-        return await OrganizationService().get_organization(db, ctx.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await OrganizationService().get_organization(db, ctx.tenant_id)
 
 
 @router.get("/stats", response_model=OrgStatsOut)
@@ -41,12 +33,4 @@ async def get_org_stats(
     ctx: Annotated[ApiKeyContext, Depends(require_scope(PublicScope.ORG_READ))],
 ) -> OrgStatsOut:
     """Return tenant resource counts (customers/cards/devices/transactions)."""
-    try:
-        return await OrganizationService().get_stats(db, ctx.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await OrganizationService().get_stats(db, ctx.tenant_id)

@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -26,15 +26,7 @@ async def check_firmware(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> FirmwareCheckOut:
     """Check whether a firmware update is available for this device type."""
-    try:
-        return await DeviceFirmwareService().check(db, device)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceFirmwareService().check(db, device)
 
 
 @router.get("/download/{firmware_id}", response_model=FirmwareDownloadOut)
@@ -44,15 +36,7 @@ async def download_firmware(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> FirmwareDownloadOut:
     """Return signed-URL-style download metadata for a firmware image."""
-    try:
-        return await DeviceFirmwareService().download(db, device, firmware_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceFirmwareService().download(db, device, firmware_id)
 
 
 @router.post("/update-status", response_model=FirmwareUpdateOut)
@@ -62,13 +46,5 @@ async def update_status(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> FirmwareUpdateOut:
     """Report firmware update progress for a device."""
-    try:
-        update = await DeviceFirmwareService().update_status(db, device, payload)
-        return FirmwareUpdateOut.model_validate(update)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    update = await DeviceFirmwareService().update_status(db, device, payload)
+    return FirmwareUpdateOut.model_validate(update)

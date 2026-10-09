@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -25,18 +25,10 @@ async def list_notifications(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedNotificationOut:
     """List notifications for the caller's tenant."""
-    try:
-        result = await NotificationService().list_notifications(
-            db, current_admin.tenant_id, page, limit
-        )
-        return PaginatedNotificationOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await NotificationService().list_notifications(
+        db, current_admin.tenant_id, page, limit
+    )
+    return PaginatedNotificationOut(**result)
 
 
 @router.post("/read-all", response_model=NotificationReadAllResult)
@@ -45,13 +37,5 @@ async def mark_all_read(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> NotificationReadAllResult:
     """Mark all notifications as read for the caller's tenant."""
-    try:
-        count = await NotificationService().mark_all_read(db, current_admin.tenant_id)
-        return NotificationReadAllResult(marked_read=count)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    count = await NotificationService().mark_all_read(db, current_admin.tenant_id)
+    return NotificationReadAllResult(marked_read=count)

@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -32,16 +32,8 @@ async def topup_request(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> KioskTopupSessionOut:
     """Open a kiosk top-up session (idempotent)."""
-    try:
-        session = await DeviceKioskService().request_topup(db, device, payload)
-        return KioskTopupSessionOut.model_validate(session)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    session = await DeviceKioskService().request_topup(db, device, payload)
+    return KioskTopupSessionOut.model_validate(session)
 
 
 @router.post("/topup/confirm", response_model=KioskTopupSessionOut)
@@ -51,16 +43,8 @@ async def topup_confirm(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> KioskTopupSessionOut:
     """Confirm a top-up session, crediting the customer's wallet (idempotent)."""
-    try:
-        session = await DeviceKioskService().confirm_topup(db, device, payload)
-        return KioskTopupSessionOut.model_validate(session)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    session = await DeviceKioskService().confirm_topup(db, device, payload)
+    return KioskTopupSessionOut.model_validate(session)
 
 
 @router.post("/topup/cancel", response_model=KioskTopupSessionOut)
@@ -70,16 +54,8 @@ async def topup_cancel(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> KioskTopupSessionOut:
     """Cancel a pending top-up session."""
-    try:
-        session = await DeviceKioskService().cancel_topup(db, device, payload.session_id)
-        return KioskTopupSessionOut.model_validate(session)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    session = await DeviceKioskService().cancel_topup(db, device, payload.session_id)
+    return KioskTopupSessionOut.model_validate(session)
 
 
 @router.get("/payment-methods", response_model=PaymentMethodsOut)
@@ -88,13 +64,5 @@ async def payment_methods(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> PaymentMethodsOut:
     """List active payment methods for the tenant."""
-    try:
-        methods = await DeviceKioskService().list_payment_methods(db, device)
-        return PaymentMethodsOut(items=[PaymentMethodOut.model_validate(m) for m in methods])
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    methods = await DeviceKioskService().list_payment_methods(db, device)
+    return PaymentMethodsOut(items=[PaymentMethodOut.model_validate(m) for m in methods])

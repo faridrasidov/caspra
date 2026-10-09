@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -24,15 +24,7 @@ async def daily_report(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> DailyReportOut:
     """Daily transaction volume report."""
-    try:
-        return await ReportService().daily(db, current_admin.tenant_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ReportService().daily(db, current_admin.tenant_id)
 
 
 @router.get("/customer-activity", response_model=CustomerActivityOut)
@@ -42,15 +34,7 @@ async def customer_activity_report(
     limit: int = Query(50, ge=1, le=500),
 ) -> CustomerActivityOut:
     """Customer spend/activity ranking."""
-    try:
-        return await ReportService().customer_activity(db, current_admin.tenant_id, limit)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ReportService().customer_activity(db, current_admin.tenant_id, limit)
 
 
 @router.get("/export", response_model=ReportExportOut)
@@ -61,12 +45,4 @@ async def export_report(
     format: str = Query("json"),
 ) -> ReportExportOut:
     """Export a named report for the caller's tenant."""
-    try:
-        return await ReportService().export(db, current_admin.tenant_id, report, format)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await ReportService().export(db, current_admin.tenant_id, report, format)

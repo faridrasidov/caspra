@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -28,15 +28,7 @@ async def handshake(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
 ) -> DeviceHandshakeOut:
     """Unauthenticated bootstrap: report whether a device is registered/active."""
-    try:
-        return await DeviceAuthService().handshake(db, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Handshake failed: {e}",
-        ) from e
+    return await DeviceAuthService().handshake(db, payload)
 
 
 @router.post("/login", response_model=DeviceTokenOut, status_code=status.HTTP_201_CREATED)
@@ -45,15 +37,7 @@ async def login(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceTokenOut:
     """HMAC-authenticated: issue a device-access token + refresh token."""
-    try:
-        return await DeviceAuthService().login(db, device)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Device login failed: {e}",
-        ) from e
+    return await DeviceAuthService().login(db, device)
 
 
 @router.post("/refresh", response_model=DeviceTokenOut)
@@ -62,15 +46,7 @@ async def refresh(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
 ) -> DeviceTokenOut:
     """Exchange a device refresh token for a new token pair."""
-    try:
-        return await DeviceAuthService().refresh(db, payload.refresh_token)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Token refresh failed: {e}",
-        ) from e
+    return await DeviceAuthService().refresh(db, payload.refresh_token)
 
 
 @router.post("/heartbeat", response_model=DeviceHeartbeatOut)
@@ -80,15 +56,7 @@ async def heartbeat(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceHeartbeatOut:
     """Record a device heartbeat and return the server time."""
-    try:
-        return await DeviceAuthService().heartbeat(db, device, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Heartbeat failed: {e}",
-        ) from e
+    return await DeviceAuthService().heartbeat(db, device, payload)
 
 
 @router.get("/config", response_model=DeviceConfigDownloadOut)
@@ -97,12 +65,4 @@ async def download_config(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceConfigDownloadOut:
     """Download the device's current configuration payload."""
-    try:
-        return await DeviceAuthService().get_config(db, device)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceAuthService().get_config(db, device)

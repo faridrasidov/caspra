@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -26,16 +26,8 @@ async def push_events(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceEventPushOut:
     """Push device logs/events to the server."""
-    try:
-        accepted = await DeviceEventService().push(db, device, payload)
-        return DeviceEventPushOut(accepted=accepted)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    accepted = await DeviceEventService().push(db, device, payload)
+    return DeviceEventPushOut(accepted=accepted)
 
 
 @router.get("/pull", response_model=DeviceCommandPullOut)
@@ -44,13 +36,5 @@ async def pull_events(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceCommandPullOut:
     """Pull pending server messages/commands for the device."""
-    try:
-        commands = await DeviceEventService().pull(db, device)
-        return DeviceCommandPullOut(commands=[DeviceCommandOut.model_validate(c) for c in commands])
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    commands = await DeviceEventService().pull(db, device)
+    return DeviceCommandPullOut(commands=[DeviceCommandOut.model_validate(c) for c in commands])

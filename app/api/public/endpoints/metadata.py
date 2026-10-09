@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 
 from app.core.config import settings
 from app.schemas.public import VersionOut
@@ -23,22 +23,14 @@ async def get_schema(request: Request) -> dict[str, Any]:
     Open (no API key required) so SDK generators can fetch the contract. Only
     paths under the public prefix are exposed; admin/device surfaces are hidden.
     """
-    try:
-        full_schema = request.app.openapi()
-        prefix = settings.public_api_prefix
-        public_paths = {
-            path: item
-            for path, item in full_schema.get("paths", {}).items()
-            if path.startswith(prefix)
-        }
-        return {
-            "openapi": full_schema.get("openapi"),
-            "info": full_schema.get("info"),
-            "paths": public_paths,
-            "components": full_schema.get("components", {}),
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    full_schema = request.app.openapi()
+    prefix = settings.public_api_prefix
+    public_paths = {
+        path: item for path, item in full_schema.get("paths", {}).items() if path.startswith(prefix)
+    }
+    return {
+        "openapi": full_schema.get("openapi"),
+        "info": full_schema.get("info"),
+        "paths": public_paths,
+        "components": full_schema.get("components", {}),
+    }

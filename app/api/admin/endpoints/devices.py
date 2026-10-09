@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -37,16 +37,8 @@ async def list_devices(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedDeviceOut:
     """List devices for the caller's tenant."""
-    try:
-        result = await DeviceService().list_devices(db, current_admin.tenant_id, page, limit)
-        return PaginatedDeviceOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await DeviceService().list_devices(db, current_admin.tenant_id, page, limit)
+    return PaginatedDeviceOut(**result)
 
 
 @router.post("", response_model=DeviceProvisioningOut, status_code=status.HTTP_201_CREATED)
@@ -58,22 +50,12 @@ async def register_device(
     ],
 ) -> DeviceProvisioningOut:
     """Register a new device."""
-    try:
-        device, raw_secret = await DeviceService().register_device(
-            db, current_admin.tenant_id, payload
-        )
-        return DeviceProvisioningOut(
-            **DeviceOut.model_validate(device).model_dump(),
-            hmac_secret=raw_secret,
-            hmac_secret_version=device.hmac_secret_version,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    device, raw_secret = await DeviceService().register_device(db, current_admin.tenant_id, payload)
+    return DeviceProvisioningOut(
+        **DeviceOut.model_validate(device).model_dump(),
+        hmac_secret=raw_secret,
+        hmac_secret_version=device.hmac_secret_version,
+    )
 
 
 @router.post("/{device_id}/credentials/rotate", response_model=DeviceCredentialOut)
@@ -101,15 +83,7 @@ async def get_device(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> DeviceOut:
     """Get a single device."""
-    try:
-        return await DeviceService().get_device(db, current_admin.tenant_id, device_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().get_device(db, current_admin.tenant_id, device_id)
 
 
 @router.patch("/{device_id}", response_model=DeviceOut)
@@ -122,15 +96,7 @@ async def update_device(
     ],
 ) -> DeviceOut:
     """Update a device."""
-    try:
-        return await DeviceService().update_device(db, current_admin.tenant_id, device_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().update_device(db, current_admin.tenant_id, device_id, payload)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -142,15 +108,7 @@ async def delete_device(
     ],
 ) -> None:
     """Delete a device."""
-    try:
-        await DeviceService().delete_device(db, current_admin.tenant_id, device_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    await DeviceService().delete_device(db, current_admin.tenant_id, device_id)
 
 
 @router.post("/{device_id}/status", response_model=DeviceOut)
@@ -163,15 +121,7 @@ async def set_device_status(
     ],
 ) -> DeviceOut:
     """Set a device's status."""
-    try:
-        return await DeviceService().set_status(db, current_admin.tenant_id, device_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().set_status(db, current_admin.tenant_id, device_id, payload)
 
 
 @router.post("/{device_id}/reset", response_model=DeviceCommandOut)
@@ -184,21 +134,13 @@ async def reset_device(
     ],
 ) -> DeviceCommandOut:
     """Queue a reset command that remains pending until device acknowledgement."""
-    try:
-        return await DeviceService().reset(
-            db,
-            current_admin.tenant_id,
-            device_id,
-            reason=payload.reason,
-            requested_by=current_admin.id,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().reset(
+        db,
+        current_admin.tenant_id,
+        device_id,
+        reason=payload.reason,
+        requested_by=current_admin.id,
+    )
 
 
 @router.get("/{device_id}/config", response_model=DeviceConfigOut)
@@ -208,15 +150,7 @@ async def get_device_config(
     current_admin: Annotated[User, Depends(get_current_admin)],
 ) -> DeviceConfigOut:
     """Get a device's configuration."""
-    try:
-        return await DeviceService().get_config(db, current_admin.tenant_id, device_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().get_config(db, current_admin.tenant_id, device_id)
 
 
 @router.put("/{device_id}/config", response_model=DeviceConfigOut)
@@ -229,15 +163,7 @@ async def update_device_config(
     ],
 ) -> DeviceConfigOut:
     """Update a device's configuration."""
-    try:
-        return await DeviceService().update_config(db, current_admin.tenant_id, device_id, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceService().update_config(db, current_admin.tenant_id, device_id, payload)
 
 
 @router.get("/{device_id}/events", response_model=PaginatedDeviceEventOut)
@@ -249,15 +175,5 @@ async def list_device_events(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedDeviceEventOut:
     """List events emitted by a device."""
-    try:
-        result = await DeviceService().list_events(
-            db, current_admin.tenant_id, device_id, page, limit
-        )
-        return PaginatedDeviceEventOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await DeviceService().list_events(db, current_admin.tenant_id, device_id, page, limit)
+    return PaginatedDeviceEventOut(**result)

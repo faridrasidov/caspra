@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -24,15 +24,7 @@ async def get_settings(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceSettingsOut:
     """Return the device's current settings/config."""
-    try:
-        return await DeviceSettingsService().get(db, device)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceSettingsService().get(db, device)
 
 
 @router.put("", response_model=DeviceSettingsOut)
@@ -42,15 +34,7 @@ async def update_settings(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceSettingsOut:
     """Persist device config changes pulled by the device."""
-    try:
-        return await DeviceSettingsService().update(db, device, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceSettingsService().update(db, device, payload)
 
 
 @router.post("/reload", response_model=DeviceReloadOut, status_code=status.HTTP_201_CREATED)
@@ -59,13 +43,5 @@ async def reload_settings(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> DeviceReloadOut:
     """Queue a reload command for the device."""
-    try:
-        command = await DeviceSettingsService().reload(db, device)
-        return DeviceReloadOut(command_id=command.id, status=command.status)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    command = await DeviceSettingsService().reload(db, device)
+    return DeviceReloadOut(command_id=command.id, status=command.status)

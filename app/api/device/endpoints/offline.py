@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -24,15 +24,7 @@ async def offline_config(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> OfflineConfigOut:
     """Return the offline operating limits for this device's tenant."""
-    try:
-        return await DeviceOfflineService().offline_config(db, device)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceOfflineService().offline_config(db, device)
 
 
 @router.post("/sync", response_model=OfflineSyncResultOut, status_code=status.HTTP_201_CREATED)
@@ -42,15 +34,7 @@ async def offline_sync(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> OfflineSyncResultOut:
     """Sync queued offline operations (replay-safe)."""
-    try:
-        return await DeviceOfflineService().apply_queue(db, device, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceOfflineService().apply_queue(db, device, payload)
 
 
 @router.post("/queue", response_model=OfflineSyncResultOut, status_code=status.HTTP_201_CREATED)
@@ -60,12 +44,4 @@ async def offline_queue(
     device: Annotated[Device, Depends(get_authenticated_device)],
 ) -> OfflineSyncResultOut:
     """Upload the full offline queue (idempotent / replay-safe via OfflineTransaction)."""
-    try:
-        return await DeviceOfflineService().apply_queue(db, device, payload)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await DeviceOfflineService().apply_queue(db, device, payload)

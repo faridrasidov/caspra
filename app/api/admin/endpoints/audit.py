@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
@@ -24,16 +24,8 @@ async def list_audit_logs(
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedAuditLogOut:
     """List audit logs for the caller's tenant."""
-    try:
-        result = await AuditService().list_logs(db, current_admin.tenant_id, page, limit)
-        return PaginatedAuditLogOut(**result)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    result = await AuditService().list_logs(db, current_admin.tenant_id, page, limit)
+    return PaginatedAuditLogOut(**result)
 
 
 @router.get("/{log_id}", response_model=AuditLogOut)
@@ -43,12 +35,4 @@ async def get_audit_log(
     current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.AUDIT_READ))],
 ) -> AuditLogOut:
     """Get a single audit log entry."""
-    try:
-        return await AuditService().get_log(db, current_admin.tenant_id, log_id)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An unexpected error occurred",
-        ) from e
+    return await AuditService().get_log(db, current_admin.tenant_id, log_id)
