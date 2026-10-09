@@ -122,7 +122,14 @@ dataset, for example `--tenant-slug demo-30d-2`. Production environments also re
 ## Testing
 
 ```bash
-pytest
+pytest --cov      # fails below the coverage floor set in pyproject.toml
+mypy              # type check (strict for services, core and utils)
+```
+
+To run Ruff and mypy automatically on every commit:
+
+```bash
+pip install pre-commit && pre-commit install
 ```
 
 The suite covers HTTP integration tests per surface, ledger money-correctness (idempotency, insufficient funds, double-entry), device HMAC auth and charge flows, and cross-tenant isolation.
@@ -170,7 +177,7 @@ These conventions are enforced as rules in `.cursor/rules/`.
 
 ## Contributing
 
-Contributions are welcome. Please keep changes consistent with the layered architecture and the money/ledger invariants documented in `.cursor/rules/`. Run `ruff check` and `pytest` before opening a PR.
+Contributions are welcome. Please keep changes consistent with the layered architecture and the money/ledger invariants documented in `.cursor/rules/`. Run `ruff check`, `mypy` and `pytest` before opening a PR (or install the pre-commit hooks above).
 
 ## License
 
