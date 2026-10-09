@@ -9,6 +9,7 @@
     "typecheck": "vue-tsc -b --pretty false",
     "generate:api": "openapi-typescript ../openapi.json -o src/api/schema.d.ts",
     "check:icons": "node scripts/check-icons.mjs",
+    "lint": "eslint . --max-warnings=0",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -23,10 +24,14 @@
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/tsconfig": "^0.8.1",
+    "eslint": "^10.12.0",
+    "eslint-plugin-vue": "^10.11.1",
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
     "vite": "^8.1.5",
     "vue-tsc": "^3.3.9"
   }

@@ -18,3 +18,10 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      # Dashboard lint; needs `npm ci` in web/ first.
+      - id: eslint-web
+        name: eslint (web)
+        entry: npm --prefix web run lint
+        language: system
+        files: ^web/.*\.(ts|mts|vue)$
+        pass_filenames: false
