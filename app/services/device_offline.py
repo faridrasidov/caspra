@@ -148,6 +148,7 @@ class DeviceOfflineService:
                         request_hash,
                         OfflineTransactionStatus.MANUAL_REVIEW,
                         "Sequence number is already associated with another operation",
+                        keep_sequence=False,
                     )
                 )
                 continue
@@ -335,6 +336,7 @@ class DeviceOfflineService:
         *,
         status: OfflineTransactionStatus = OfflineTransactionStatus.PENDING,
         error: str | None = None,
+        keep_sequence: bool = True,
     ) -> OfflineTransaction:
         record = OfflineTransaction(
             tenant_id=device.tenant_id,
@@ -342,7 +344,7 @@ class DeviceOfflineService:
             idempotency_key=item.idempotency_key,
             request_hash=request_hash,
             occurred_at=item.occurred_at,
-            sequence_number=item.sequence_number,
+            sequence_number=item.sequence_number if keep_sequence else None,
             card_uid=item.card_uid,
             amount_minor=item.amount_minor,
             payload=item.model_dump(mode="json"),
@@ -369,6 +371,8 @@ class DeviceOfflineService:
         request_hash: str,
         status: OfflineTransactionStatus,
         reason: str | None,
+        *,
+        keep_sequence: bool = True,
     ) -> OfflineItemResult:
         record = await self._create_record(
             db,
@@ -377,6 +381,7 @@ class DeviceOfflineService:
             request_hash,
             status=status,
             error=reason,
+            keep_sequence=keep_sequence,
         )
         return self._result(
             item,

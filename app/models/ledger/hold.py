@@ -133,7 +133,9 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
     idempotency_key: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     request_hash: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # NULL when the device reused a sequence number already held by another
+    # operation; the device's original number is kept in ``payload``.
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     card_uid: Mapped[str] = mapped_column(VARCHAR(120), nullable=False)
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)

@@ -104,7 +104,7 @@ class OfflineReviewItemOut(BaseModel):
     card_uid: str
     amount_minor: int
     occurred_at: datetime
-    sequence_number: int
+    sequence_number: int | None = None
     status: OfflineTransactionStatus
     error: str | None = None
     applied_transaction_id: UUID | None = None

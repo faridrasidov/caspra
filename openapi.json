@@ -15963,7 +15963,14 @@
             "title": "Occurred At"
           },
           "sequence_number": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Sequence Number"
           },
           "status": {
@@ -16001,7 +16008,6 @@
           "card_uid",
           "amount_minor",
           "occurred_at",
-          "sequence_number",
           "status"
         ],
         "title": "OfflineReviewItemOut"

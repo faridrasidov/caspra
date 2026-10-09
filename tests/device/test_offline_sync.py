@@ -154,6 +154,30 @@ class TestOfflineSyncPolicy:
         assert "Expected sequence 1" in result.results[0].error
         assert await _balance(db_session, seeded_device) == 10_000
 
+    async def test_reused_sequence_with_new_key_goes_to_manual_review(
+        self, db_session, seeded_device
+    ):
+        uid = seeded_device["card_uid"]
+        await _sync(db_session, seeded_device, _item(uid, 1))
+        result = await _sync(db_session, seeded_device, _item(uid, 1))
+        assert result.manual_review == 1
+        assert await _balance(db_session, seeded_device) == 10_000 - 500
+
+        held = await DeviceOfflineService().list_review(
+            db_session, UUID(seeded_device["tenant_id"])
+        )
+        assert len(held) == 1
+        assert held[0].sequence_number is None
+        assert held[0].payload["sequence_number"] == 1
+
+    async def test_sequence_conflict_does_not_block_rest_of_queue(self, db_session, seeded_device):
+        uid = seeded_device["card_uid"]
+        await _sync(db_session, seeded_device, _item(uid, 1))
+        result = await _sync(db_session, seeded_device, _item(uid, 1), _item(uid, 2))
+
+        assert (result.accepted, result.manual_review) == (1, 1)
+        assert await _balance(db_session, seeded_device) == 10_000 - 1_000
+
 
 class TestOfflineManualReview:
     """Operators approve or reject items held for manual review."""
