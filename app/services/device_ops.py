@@ -162,6 +162,7 @@ class DeviceFirmwareService:
                 tenant_id=device.tenant_id,
                 device_id=device.id,
                 firmware_id=payload.firmware_id,
+                progress=0,  # column default only applies on INSERT; compared below
             )
             db.add(update)
         else:
