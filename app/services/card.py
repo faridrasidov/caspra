@@ -10,15 +10,18 @@ from app.models.device.device import Card, CardStatus
 from app.models.ledger.wallet import Customer
 from app.schemas.card import CardCreate
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class CardService(TenantScopedService):
+class CardService(TenantScopedService[Card]):
     """Manage RFID/NFC cards and their lifecycle within a tenant."""
 
     model = Card
     resource_name = "Card"
 
-    async def list_cards(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_cards(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Card]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Card.created_at.desc())
 
     async def register_card(self, db: AsyncSession, tenant_id: UUID, payload: CardCreate) -> Card:

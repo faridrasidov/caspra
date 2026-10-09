@@ -7,20 +7,20 @@ from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 
-class TenantScopedService:
+class TenantScopedService[ModelT]:
     """Base for services whose model carries a ``tenant_id`` column.
 
     Provides reusable, tenant-isolated fetch and pagination helpers so every
     query filters by the caller's tenant.
     """
 
-    model: type[Any]
+    model: type[ModelT]
     resource_name: str = "Resource"
 
-    async def get_owned(self, db: AsyncSession, obj_id: UUID, tenant_id: UUID) -> Any:
+    async def get_owned(self, db: AsyncSession, obj_id: UUID, tenant_id: UUID) -> ModelT:
         """Fetch a row by id scoped to the tenant or raise ``NotFoundError``."""
         stmt = select(self.model).where(
             self.model.id == obj_id,
@@ -40,7 +40,7 @@ class TenantScopedService:
         limit: int,
         *extra_filters: ColumnElement[bool],
         order_by: Any | None = None,
-    ) -> dict:
+    ) -> Page[ModelT]:
         """Return a paginated, tenant-scoped list of the service model."""
         stmt = select(self.model).where(self.model.tenant_id == tenant_id, *extra_filters)
         if order_by is not None:

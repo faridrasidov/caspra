@@ -8,16 +8,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.device.device import Kiosk, KioskLog
 from app.schemas.kiosk import KioskCreate, KioskUpdate
 from app.services.base import TenantScopedService
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 
-class KioskService(TenantScopedService):
+class KioskService(TenantScopedService[Kiosk]):
     """Manage self-service kiosks and their logs."""
 
     model = Kiosk
     resource_name = "Kiosk"
 
-    async def list_kiosks(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_kiosks(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Kiosk]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Kiosk.created_at.desc())
 
     async def create_kiosk(self, db: AsyncSession, tenant_id: UUID, payload: KioskCreate) -> Kiosk:
@@ -47,7 +49,7 @@ class KioskService(TenantScopedService):
 
     async def list_logs(
         self, db: AsyncSession, tenant_id: UUID, kiosk_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[KioskLog]:
         await self.get_owned(db, kiosk_id, tenant_id)
         stmt = (
             select(KioskLog)

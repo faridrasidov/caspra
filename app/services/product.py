@@ -9,15 +9,18 @@ from app.core.domain_errors import ConflictError
 from app.models.catalog.product import Product
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class ProductService(TenantScopedService):
+class ProductService(TenantScopedService[Product]):
     """Manage tenant-scoped point-of-sale products."""
 
     model = Product
     resource_name = "Product"
 
-    async def list_products(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_products(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Product]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Product.created_at.desc())
 
     async def create_product(

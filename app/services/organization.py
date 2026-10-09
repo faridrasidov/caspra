@@ -17,7 +17,7 @@ from app.schemas.organization import (
 )
 from app.schemas.public import OrgStatsOut
 from app.schemas.user import UserCreate, UserUpdate
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 
 class OrganizationService:
@@ -76,7 +76,9 @@ class OrganizationService:
         await db.refresh(settings_row)
         return settings_row
 
-    async def list_users(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_users(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[User]:
         stmt = select(User).where(User.tenant_id == tenant_id).order_by(User.created_at.desc())
         return await paginate_async_query(
             session=db, base_query=stmt, page=page, limit=limit, use_scalars=True

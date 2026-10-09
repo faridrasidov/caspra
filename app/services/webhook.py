@@ -21,7 +21,7 @@ from app.models.tenant.organization import Webhook
 from app.models.tenant.webhook_delivery import WebhookDelivery, WebhookDeliveryStatus
 from app.schemas.webhook import WebhookCreate, WebhookUpdate
 from app.services.base import TenantScopedService
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 SUBSCRIBABLE_EVENT_TYPES: list[str] = [
     "customer.created",
@@ -38,7 +38,7 @@ PROCESSING_LEASE = timedelta(minutes=5)
 MAX_RESPONSE_BODY = 2000
 
 
-class WebhookService(TenantScopedService):
+class WebhookService(TenantScopedService[Webhook]):
     """Transactional webhook outbox management and signed delivery."""
 
     model = Webhook
@@ -196,12 +196,14 @@ class WebhookService(TenantScopedService):
         delivery.status = WebhookDeliveryStatus.RETRYING.value
         delivery.next_retry_at = datetime.now(UTC) + timedelta(seconds=delay_seconds)
 
-    async def list_webhooks(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_webhooks(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Webhook]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Webhook.created_at.desc())
 
     async def list_deliveries(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[WebhookDelivery]:
         stmt = (
             select(WebhookDelivery)
             .where(WebhookDelivery.tenant_id == tenant_id)

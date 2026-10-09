@@ -14,9 +14,10 @@ from app.schemas.customer import (
     CustomerUpdate,
 )
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class CustomerService(TenantScopedService):
+class CustomerService(TenantScopedService[Customer]):
     """Manage tenant-scoped end-user cardholders."""
 
     model = Customer
@@ -24,7 +25,7 @@ class CustomerService(TenantScopedService):
 
     async def list_customers(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[Customer]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Customer.created_at.desc())
 
     async def create_customer(

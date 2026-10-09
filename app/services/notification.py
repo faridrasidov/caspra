@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant.organization import Notification
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class NotificationService(TenantScopedService):
+class NotificationService(TenantScopedService[Notification]):
     """Manage admin-facing notifications for a tenant."""
 
     model = Notification
@@ -17,7 +18,7 @@ class NotificationService(TenantScopedService):
 
     async def list_notifications(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[Notification]:
         return await self.paginate(
             db, tenant_id, page, limit, order_by=Notification.created_at.desc()
         )

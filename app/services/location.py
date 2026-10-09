@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.tenant.organization import Location
 from app.schemas.location import LocationCreate, LocationUpdate
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class LocationService(TenantScopedService):
+class LocationService(TenantScopedService[Location]):
     """Manage tenant-scoped physical locations/venues."""
 
     model = Location
@@ -17,7 +18,7 @@ class LocationService(TenantScopedService):
 
     async def list_locations(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[Location]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Location.created_at.desc())
 
     async def create_location(

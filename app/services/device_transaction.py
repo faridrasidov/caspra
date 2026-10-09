@@ -13,13 +13,15 @@ from app.schemas.device_txn import (
     OfflineSyncResultOut,
 )
 from app.services.device_offline import DeviceOfflineService
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 
 class DeviceTransactionService:
     """A device's view of its own transactions and offline upload entry point."""
 
-    async def list_recent(self, db: AsyncSession, device: Device, page: int, limit: int) -> dict:
+    async def list_recent(
+        self, db: AsyncSession, device: Device, page: int, limit: int
+    ) -> Page[Transaction]:
         stmt = (
             select(Transaction)
             .where(
@@ -32,7 +34,9 @@ class DeviceTransactionService:
             session=db, base_query=stmt, page=page, limit=limit, use_scalars=True
         )
 
-    async def list_pending(self, db: AsyncSession, device: Device, page: int, limit: int) -> dict:
+    async def list_pending(
+        self, db: AsyncSession, device: Device, page: int, limit: int
+    ) -> Page[Transaction]:
         stmt = (
             select(Transaction)
             .where(

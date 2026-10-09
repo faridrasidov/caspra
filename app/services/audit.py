@@ -6,15 +6,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit.audit_log import AuditLog
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class AuditService(TenantScopedService):
+class AuditService(TenantScopedService[AuditLog]):
     """Read access to the tenant's append-only audit trail."""
 
     model = AuditLog
     resource_name = "Audit log"
 
-    async def list_logs(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_logs(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[AuditLog]:
         return await self.paginate(db, tenant_id, page, limit, order_by=AuditLog.created_at.desc())
 
     async def get_log(self, db: AsyncSession, tenant_id: UUID, log_id: UUID) -> AuditLog:

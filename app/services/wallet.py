@@ -9,15 +9,18 @@ from app.core.domain_errors import NotFoundError
 from app.models.ledger.wallet import Customer, Wallet
 from app.schemas.wallet import WalletCreate
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class WalletService(TenantScopedService):
+class WalletService(TenantScopedService[Wallet]):
     """Manage wallet records. Money movement lives in ``LedgerService``."""
 
     model = Wallet
     resource_name = "Wallet"
 
-    async def list_wallets(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_wallets(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Wallet]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Wallet.created_at.desc())
 
     async def create_wallet(

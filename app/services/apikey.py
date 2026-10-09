@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.identity.user import ApiKey
 from app.schemas.apikey import ApiKeyCreate
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
 def _generate_key() -> tuple[str, str, str]:
@@ -20,13 +21,15 @@ def _generate_key() -> tuple[str, str, str]:
     return plaintext, prefix, key_hash
 
 
-class ApiKeyService(TenantScopedService):
+class ApiKeyService(TenantScopedService[ApiKey]):
     """Manage tenant API keys. Plaintext keys are shown only once on creation."""
 
     model = ApiKey
     resource_name = "API key"
 
-    async def list_keys(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_keys(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[ApiKey]:
         return await self.paginate(db, tenant_id, page, limit, order_by=ApiKey.created_at.desc())
 
     async def create_key(

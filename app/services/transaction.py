@@ -13,9 +13,10 @@ from app.schemas.transaction import (
     TransactionStatsOut,
 )
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class TransactionService(TenantScopedService):
+class TransactionService(TenantScopedService[Transaction]):
     """Read-side access to the transaction history (writes go via LedgerService)."""
 
     model = Transaction
@@ -31,7 +32,7 @@ class TransactionService(TenantScopedService):
         wallet_id: UUID | None = None,
         customer_id: UUID | None = None,
         device_id: UUID | None = None,
-    ) -> dict:
+    ) -> Page[Transaction]:
         filters = []
         if txn_type is not None:
             filters.append(Transaction.type == txn_type)

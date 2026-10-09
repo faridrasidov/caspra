@@ -1,10 +1,19 @@
 # app/utils/pagination.py
 
 import math
-from typing import Any
+from typing import Any, TypedDict
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+class Page[T](TypedDict):
+    """One page of results; unpacks straight into the ``Paginated*Out`` schemas."""
+
+    page: int
+    total: int
+    pages: int
+    items: list[T]
 
 
 async def paginate_async_query(
@@ -15,7 +24,7 @@ async def paginate_async_query(
     limit: int,
     count_query: Select[Any] | None = None,
     use_scalars: bool = False,
-) -> dict[str, Any]:
+) -> Page[Any]:
     """Execute a paginated async query and return {page, total, pages, items}."""
     if count_query is None:
         count_query = select(func.count()).select_from(base_query.subquery())
@@ -30,4 +39,4 @@ async def paginate_async_query(
     items = list(result.scalars().all()) if use_scalars else list(result.all())
 
     pages = math.ceil(total / limit) if limit else 0
-    return {"page": page, "total": total, "pages": pages, "items": items}
+    return Page(page=page, total=total, pages=pages, items=items)

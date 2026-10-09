@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog.product import ProductCategory
 from app.services.base import TenantScopedService
+from app.utils.pagination import Page
 
 
-class ProductCategoryService(TenantScopedService):
+class ProductCategoryService(TenantScopedService[ProductCategory]):
     """Read access to tenant-scoped product categories for the public API."""
 
     model = ProductCategory
@@ -16,7 +17,7 @@ class ProductCategoryService(TenantScopedService):
 
     async def list_categories(
         self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[ProductCategory]:
         return await self.paginate(db, tenant_id, page, limit, order_by=ProductCategory.name.asc())
 
     async def get_category(

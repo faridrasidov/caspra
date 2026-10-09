@@ -24,16 +24,18 @@ from app.schemas.device import (
     DeviceUpdate,
 )
 from app.services.base import TenantScopedService
-from app.utils.pagination import paginate_async_query
+from app.utils.pagination import Page, paginate_async_query
 
 
-class DeviceService(TenantScopedService):
+class DeviceService(TenantScopedService[Device]):
     """Manage reader/POS devices, their config, and event stream."""
 
     model = Device
     resource_name = "Device"
 
-    async def list_devices(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
+    async def list_devices(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+    ) -> Page[Device]:
         return await self.paginate(db, tenant_id, page, limit, order_by=Device.created_at.desc())
 
     async def register_device(
@@ -146,7 +148,7 @@ class DeviceService(TenantScopedService):
 
     async def list_events(
         self, db: AsyncSession, tenant_id: UUID, device_id: UUID, page: int, limit: int
-    ) -> dict:
+    ) -> Page[DeviceEvent]:
         await self.get_owned(db, device_id, tenant_id)
         stmt = (
             select(DeviceEvent)
