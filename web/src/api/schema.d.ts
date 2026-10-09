@@ -4596,7 +4596,7 @@ export interface components {
              */
             occurred_at: string;
             /** Sequence Number */
-            sequence_number: number;
+            sequence_number?: number | null;
             status: components["schemas"]["OfflineTransactionStatus"];
             /** Error */
             error?: string | null;

@@ -5,7 +5,7 @@ SQLAlchemy==2.0.51
 alembic==1.18.5
 redis==8.0.1
 asyncpg==0.31.0
-PyJWT[crypto]==2.13.0
+PyJWT[crypto]==2.15.1
 cryptography==50.0.0
 bcrypt==5.0.0
 pydantic==2.13.4
