@@ -35,7 +35,7 @@ class OfflineQueueItem(BaseModel):
     idempotency_key: UUID
     type: TransactionType = TransactionType.DEBIT
     card_uid: str = Field(..., min_length=1, max_length=120)
-    amount_minor: int = Field(..., gt=0)
+    amount_minor: int = Field(..., strict=True, gt=0)
     currency: str = Field(..., min_length=3, max_length=3)
     occurred_at: AwareDatetime
     sequence_number: int = Field(..., gt=0)
@@ -81,10 +81,10 @@ class OfflinePolicyUpdate(BaseModel):
 
     enabled: bool
     uid_risk_accepted: bool
-    max_transaction_minor: int = Field(0, ge=0)
-    max_card_total_minor: int = Field(0, ge=0)
-    max_device_total_minor: int = Field(0, ge=0)
-    max_outage_total_minor: int = Field(0, ge=0)
+    max_transaction_minor: int = Field(0, strict=True, ge=0)
+    max_card_total_minor: int = Field(0, strict=True, ge=0)
+    max_device_total_minor: int = Field(0, strict=True, ge=0)
+    max_outage_total_minor: int = Field(0, strict=True, ge=0)
     max_queue_age_seconds: int = Field(3600, ge=60, le=604800)
     max_queue_size: int = Field(100, ge=1, le=500)
     sync_interval_seconds: int = Field(60, ge=5, le=3600)
@@ -98,6 +98,7 @@ class OfflinePolicyOut(OfflinePolicyUpdate):
 
 
 class OfflineReviewItemOut(BaseModel):
+    currency: str | None
     id: UUID
     device_id: UUID
     idempotency_key: UUID

@@ -1,11 +1,12 @@
-# app/services/device_auth.py
+from __future__ import annotations
 
+# app/services/device_auth.py
 from datetime import UTC, datetime, timedelta
 import hashlib
 import secrets
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.domain_errors import UnauthorizedError
@@ -13,6 +14,7 @@ from app.core.security import create_access_token
 from app.models.device.device import Device, DeviceConfig, DeviceStatus
 from app.models.device.management import (
     DeviceHeartbeat,
+    DeviceOutage,
     DeviceToken,
     DeviceTokenType,
     HeartbeatStatus,
@@ -25,6 +27,9 @@ from app.schemas.device_auth import (
     DeviceHeartbeatRequest,
     DeviceTokenOut,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 DEVICE_REFRESH_TOKEN_EXPIRE_DAYS = 30
 
@@ -79,6 +84,20 @@ class DeviceAuthService:
         self, db: AsyncSession, device: Device, payload: DeviceHeartbeatRequest
     ) -> DeviceHeartbeatOut:
         now = datetime.now(UTC)
+        device.last_seen = now
+        outage = (
+            await db.execute(
+                select(DeviceOutage)
+                .where(
+                    DeviceOutage.tenant_id == device.tenant_id,
+                    DeviceOutage.device_id == device.id,
+                    DeviceOutage.closed_at.is_(None),
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if outage is not None:
+            outage.closed_at = now
         heartbeat = DeviceHeartbeat(
             tenant_id=device.tenant_id,
             device_id=device.id,
@@ -105,7 +124,7 @@ class DeviceAuthService:
 
     async def _issue_tokens(self, db: AsyncSession, device: Device) -> DeviceTokenOut:
         expires_in = settings.access_token_expire_minutes * 60
-        access_token = create_access_token(str(device.id))
+        access_token = create_access_token(str(device.id), audience="device")
         raw_refresh = secrets.token_urlsafe(48)
         db.add(
             DeviceToken(

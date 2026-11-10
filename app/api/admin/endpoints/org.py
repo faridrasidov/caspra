@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/org.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.organization import (
     OrganizationOut,
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/org", tags=["admin-org"])
 @router.get("", response_model=OrganizationOut)
 async def get_organization(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.ORG_READ))],
 ) -> OrganizationOut:
     """Get the caller's organization."""
     try:
@@ -42,7 +42,9 @@ async def get_organization(
 async def update_organization(
     payload: OrganizationUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.SETTINGS_MANAGE))
+    ],
 ) -> OrganizationOut:
     """Update the caller's organization."""
     try:
@@ -59,7 +61,7 @@ async def update_organization(
 @router.get("/settings", response_model=OrgSettingsOut)
 async def get_org_settings(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.ORG_READ))],
 ) -> OrgSettingsOut:
     """Get the organization's general settings."""
     try:
@@ -77,7 +79,9 @@ async def get_org_settings(
 async def update_org_settings(
     payload: OrgSettingsUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.SETTINGS_MANAGE))
+    ],
 ) -> OrgSettingsOut:
     """Update the organization's general settings."""
     try:
@@ -94,7 +98,7 @@ async def update_org_settings(
 @router.get("/users", response_model=PaginatedUserOut)
 async def list_users(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.USERS_MANAGE))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedUserOut:
@@ -115,7 +119,7 @@ async def list_users(
 async def create_user(
     payload: UserCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.USERS_MANAGE))],
 ) -> UserOut:
     """Create a user in the caller's organization."""
     try:
@@ -133,7 +137,7 @@ async def create_user(
 async def get_user(
     user_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.USERS_MANAGE))],
 ) -> UserOut:
     """Get a single user in the caller's organization."""
     try:
@@ -152,7 +156,7 @@ async def update_user(
     user_id: UUID,
     payload: UserUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.USERS_MANAGE))],
 ) -> UserOut:
     """Update a user in the caller's organization."""
     try:
@@ -172,7 +176,7 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.USERS_MANAGE))],
 ) -> None:
     """Delete a user in the caller's organization."""
     try:

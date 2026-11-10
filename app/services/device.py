@@ -1,10 +1,10 @@
-# app/services/device.py
+from __future__ import annotations
 
+# app/services/device.py
 from datetime import UTC, datetime
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import encrypt_device_secret, generate_device_secret
 from app.models.device.device import (
@@ -17,14 +17,20 @@ from app.models.device.management import (
     DeviceCommandStatus,
     DeviceCommandType,
 )
-from app.schemas.device import (
-    DeviceConfigUpdate,
-    DeviceCreate,
-    DeviceStatusUpdate,
-    DeviceUpdate,
-)
 from app.services.base import TenantScopedService
 from app.utils.pagination import paginate_async_query
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.device import (
+        DeviceConfigUpdate,
+        DeviceCreate,
+        DeviceStatusUpdate,
+        DeviceUpdate,
+    )
 
 
 class DeviceService(TenantScopedService):
@@ -33,8 +39,24 @@ class DeviceService(TenantScopedService):
     model = Device
     resource_name = "Device"
 
-    async def list_devices(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
-        return await self.paginate(db, tenant_id, page, limit, order_by=Device.created_at.desc())
+    async def list_devices(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int, q: str | None = None
+    ) -> dict:
+        result = await self.paginate(
+            db, tenant_id, page, limit, order_by=Device.created_at.desc(), q=q
+        )
+        for device in result["items"]:
+            value = device.last_seen
+            if value is not None and value.tzinfo is None:
+                value = value.replace(tzinfo=UTC)
+            device.connectivity = (
+                "unknown"
+                if value is None
+                else "online"
+                if (datetime.now(UTC) - value).total_seconds() < 180
+                else "offline"
+            )
+        return result
 
     async def register_device(
         self, db: AsyncSession, tenant_id: UUID, payload: DeviceCreate
@@ -46,6 +68,7 @@ class DeviceService(TenantScopedService):
             serial=payload.serial,
             type=payload.type.value,
             location_id=payload.location_id,
+            legacy_payments_enabled=payload.legacy_payments_enabled,
             hmac_secret_encrypted=encrypt_device_secret(raw_secret),
             hmac_secret_version=1,
             hmac_secret_rotated_at=datetime.now(UTC),
@@ -84,7 +107,7 @@ class DeviceService(TenantScopedService):
 
     async def delete_device(self, db: AsyncSession, tenant_id: UUID, device_id: UUID) -> None:
         device = await self.get_owned(db, device_id, tenant_id)
-        await db.delete(device)
+        device.status = "inactive"
         await db.commit()
 
     async def set_status(

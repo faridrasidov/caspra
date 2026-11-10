@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 # app/services/location.py
-
-from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from app.models.tenant.organization import Location
-from app.schemas.location import LocationCreate, LocationUpdate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.location import LocationCreate, LocationUpdate
 
 
 class LocationService(TenantScopedService):

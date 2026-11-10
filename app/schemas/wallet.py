@@ -35,6 +35,8 @@ class WalletBalanceOut(BaseModel):
     wallet_id: UUID
     currency: str
     balance_minor: int
+    reserved_minor: int = 0
+    available_minor: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,7 +47,7 @@ class WalletBalanceOut(BaseModel):
 class WalletTopupRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     description: str | None = Field(None, max_length=500)
@@ -54,7 +56,7 @@ class WalletTopupRequest(BaseModel):
 class WalletDeductRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     description: str | None = Field(None, max_length=500)
@@ -65,7 +67,7 @@ class WalletTransferRequest(BaseModel):
 
     from_wallet_id: UUID
     to_wallet_id: UUID
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     description: str | None = Field(None, max_length=500)

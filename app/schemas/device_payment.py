@@ -15,7 +15,7 @@ class DeviceChargeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     card_uid: str = Field(..., min_length=1, max_length=120)
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     wallet_type: WalletType = WalletType.CREDIT
@@ -27,7 +27,7 @@ class DeviceRefundRequest(BaseModel):
 
     transaction_id: UUID
     idempotency_key: UUID
-    amount_minor: int | None = Field(None, gt=0)
+    amount_minor: int | None = Field(None, strict=True, gt=0)
     reason: str | None = Field(None, max_length=500)
 
 
@@ -35,7 +35,7 @@ class DevicePreauthRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     card_uid: str = Field(..., min_length=1, max_length=120)
-    amount_minor: int = Field(..., gt=0)
+    amount_minor: int = Field(..., strict=True, gt=0)
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     wallet_type: WalletType = WalletType.CREDIT
@@ -47,7 +47,9 @@ class DeviceCaptureRequest(BaseModel):
 
     hold_id: UUID
     idempotency_key: UUID
-    amount_minor: int | None = Field(None, gt=0, description="Capture up to the held amount")
+    amount_minor: int | None = Field(
+        None, strict=True, gt=0, description="Capture up to the held amount"
+    )
 
 
 class DeviceVoidRequest(BaseModel):

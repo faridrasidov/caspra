@@ -1,19 +1,17 @@
-# app/services/device_offline.py
+from __future__ import annotations
 
+# app/services/device_offline.py
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ForbiddenError, NotFoundError, ValidationError
 from app.core.metrics import set_metric_gauge
 from app.models.device.device import Device
-from app.models.identity.user import User
 from app.models.ledger.hold import OfflineTransaction, OfflineTransactionStatus
-from app.models.ledger.wallet import TransactionType, WalletType
+from app.models.ledger.wallet import Transaction, TransactionType, WalletType
 from app.models.tenant.organization import OfflinePolicy, Organization
 from app.schemas.device_txn import (
     OfflineConfigOut,
@@ -24,9 +22,18 @@ from app.schemas.device_txn import (
     OfflineReviewDecision,
     OfflineSyncResultOut,
 )
+from app.services.audit import AuditService
+from app.services.device_capability import DeviceCapabilityService
 from app.services.device_card import DeviceCardService
 from app.services.ledger import LedgerService
 from app.utils.idempotency import canonical_request_hash
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models.identity.user import User
 
 
 class DeviceOfflineService:
@@ -34,7 +41,7 @@ class DeviceOfflineService:
 
     def __init__(self) -> None:
         self._cards = DeviceCardService()
-        self._ledger = LedgerService()
+        self._ledger = LedgerService(commit=False)
 
     async def offline_config(self, db: AsyncSession, device: Device) -> OfflineConfigOut:
         org = await db.get(Organization, device.tenant_id)
@@ -84,144 +91,157 @@ class DeviceOfflineService:
     async def apply_queue(
         self, db: AsyncSession, device: Device, payload: OfflineQueueUploadRequest
     ) -> OfflineSyncResultOut:
-        policy = await self.get_policy(db, device.tenant_id)
-        if policy is None or not policy.enabled or not policy.uid_risk_accepted:
-            raise ForbiddenError("Offline spending is disabled for this tenant")
-        if len(payload.items) > policy.max_queue_size:
-            raise ValidationError(f"Offline queue exceeds the {policy.max_queue_size} item limit")
-
+        tenant_id, device_id = device.tenant_id, device.id
         now = datetime.now(UTC)
         self._record_queue_metrics(device, payload, now)
-        window_start = now - timedelta(seconds=policy.max_queue_age_seconds)
-        expected_sequence = await self._next_sequence(db, device)
-        tenant_total = await self._risk_total(db, device.tenant_id, window_start)
-        device_total = await self._risk_total(
-            db, device.tenant_id, window_start, device_id=device.id
-        )
-        card_totals: dict[str, int] = {}
-
-        results: list[OfflineItemResult] = []
-        accepted = duplicates = rejected = manual_review = 0
-
+        results = []
+        counts = {"accepted": 0, "duplicates": 0, "rejected": 0, "manual_review": 0}
         for item in payload.items:
-            request_hash = canonical_request_hash(
-                "offline.charge",
-                device_id=device.id,
-                card_uid=item.card_uid,
-                amount_minor=item.amount_minor,
-                currency=item.currency.upper(),
-                occurred_at=item.occurred_at.isoformat(),
-                sequence_number=item.sequence_number,
-                description=item.description,
+            policy = (
+                await db.execute(
+                    select(OfflinePolicy)
+                    .where(OfflinePolicy.tenant_id == tenant_id)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if policy is None or not policy.enabled or not policy.uid_risk_accepted:
+                raise ForbiddenError("Offline spending is disabled for this tenant")
+            if len(payload.items) > policy.max_queue_size:
+                raise ValidationError("Offline queue exceeds policy size limit")
+            device = await db.get(Device, device_id)
+            result, duplicate = await self._process_item(db, device, policy, item, now)
+            await db.commit()
+            results.append(result)
+            category = (
+                "duplicates"
+                if duplicate
+                else {
+                    "applied": "accepted",
+                    "rejected": "rejected",
+                    "manual_review": "manual_review",
+                }[result.status.value]
             )
-            existing = await self._existing(db, device, item.idempotency_key)
-            if existing is not None:
-                if existing.request_hash not in {None, request_hash}:
-                    rejected += 1
-                    results.append(
-                        self._result(
-                            item,
-                            OfflineTransactionStatus.REJECTED,
-                            error="Idempotency key was reused for a different request",
-                        )
-                    )
-                else:
-                    duplicates += 1
-                    results.append(
-                        self._result(
-                            item,
-                            OfflineTransactionStatus(existing.status),
-                            transaction_id=existing.applied_transaction_id,
-                            error=existing.error,
-                        )
-                    )
-                continue
+            counts[category] += 1
+        return OfflineSyncResultOut(**counts, results=results)
 
+    async def _process_item(  # noqa: PLR0911 - explicit replay and validation dispositions
+        self, db, device, policy, item, now
+    ):
+        request_hash = canonical_request_hash(
+            "offline.charge",
+            device_id=device.id,
+            card_uid=item.card_uid,
+            amount_minor=item.amount_minor,
+            currency=item.currency.upper(),
+            occurred_at=item.occurred_at.isoformat(),
+            sequence_number=item.sequence_number,
+            description=item.description,
+        )
+        record = await self._existing(db, device, item.idempotency_key)
+        if record is not None:
+            stored_hash = record.request_hash or canonical_request_hash(
+                "offline.charge",
+                device_id=record.device_id,
+                card_uid=record.card_uid,
+                amount_minor=record.amount_minor,
+                currency=record.payload["currency"].upper(),
+                occurred_at=OfflineQueueItem.model_validate(record.payload).occurred_at.isoformat(),
+                sequence_number=record.sequence_number,
+                description=record.payload.get("description"),
+            )
+            if stored_hash != request_hash or record.device_id != device.id:
+                return self._result(
+                    item,
+                    OfflineTransactionStatus.REJECTED,
+                    error="Idempotency key was reused for another operation",
+                ), False
+            if record.status != OfflineTransactionStatus.PENDING.value:
+                return self._result(
+                    item,
+                    OfflineTransactionStatus(record.status),
+                    transaction_id=record.applied_transaction_id,
+                    error=record.error,
+                ), True
+            posted = (
+                await db.execute(
+                    select(Transaction.id).where(
+                        Transaction.tenant_id == device.tenant_id,
+                        Transaction.idempotency_key == item.idempotency_key,
+                    )
+                )
+            ).first()
+            if posted is None:
+                window_start = now - timedelta(seconds=policy.max_queue_age_seconds)
+                disposition, reason = self._validate_item(
+                    item,
+                    policy,
+                    now,
+                    window_start,
+                    item.sequence_number,
+                    await self._risk_total(db, device.tenant_id, window_start),
+                    await self._risk_total(db, device.tenant_id, window_start, device_id=device.id),
+                    await self._risk_total(
+                        db, device.tenant_id, window_start, card_uid=item.card_uid
+                    ),
+                )
+                if disposition is not None:
+                    record.status, record.error = disposition.value, reason
+                    return self._result(item, disposition, error=reason), False
+        else:
             sequence_owner = await self._existing_sequence(db, device, item.sequence_number)
             if sequence_owner is not None:
-                manual_review += 1
-                results.append(
-                    await self._record_without_applying(
-                        db,
-                        device,
-                        item,
-                        request_hash,
-                        OfflineTransactionStatus.MANUAL_REVIEW,
-                        "Sequence number is already associated with another operation",
-                    )
-                )
-                continue
-
-            if item.card_uid not in card_totals:
-                card_totals[item.card_uid] = await self._risk_total(
+                await AuditService().record(
                     db,
                     device.tenant_id,
-                    window_start,
-                    card_uid=item.card_uid,
+                    None,
+                    "offline.sequence_conflict",
+                    "device",
+                    str(device.id),
+                    {
+                        "idempotency_key": str(item.idempotency_key),
+                        "sequence_number": item.sequence_number,
+                        "original_operation": str(sequence_owner.id),
+                    },
                 )
+                return self._result(
+                    item,
+                    OfflineTransactionStatus.REJECTED,
+                    error=(
+                        "Sequence belongs to another operation; "
+                        "original preserved and conflict audited"
+                    ),
+                ), False
+            window_start = now - timedelta(seconds=policy.max_queue_age_seconds)
             disposition, reason = self._validate_item(
                 item,
                 policy,
                 now,
                 window_start,
-                expected_sequence,
-                tenant_total,
-                device_total,
-                card_totals.get(item.card_uid, 0),
+                await self._next_sequence(db, device),
+                await self._risk_total(db, device.tenant_id, window_start),
+                await self._risk_total(db, device.tenant_id, window_start, device_id=device.id),
+                await self._risk_total(db, device.tenant_id, window_start, card_uid=item.card_uid),
             )
-            if item.sequence_number == expected_sequence:
-                expected_sequence += 1
             if disposition is not None:
-                if disposition == OfflineTransactionStatus.MANUAL_REVIEW:
-                    manual_review += 1
-                else:
-                    rejected += 1
-                results.append(
-                    await self._record_without_applying(
-                        db, device, item, request_hash, disposition, reason
-                    )
-                )
-                continue
-
+                return await self._record_without_applying(
+                    db, device, item, request_hash, disposition, reason
+                ), False
             record = await self._create_record(db, device, item, request_hash)
-            try:
+        try:
+            async with db.begin_nested():
                 txn = await self._apply_item(db, device, item)
-            except HTTPException as exc:
-                record.status = OfflineTransactionStatus.REJECTED.value
-                record.error = str(exc.detail)
-                await db.commit()
-                rejected += 1
-                results.append(
-                    self._result(
-                        item,
-                        OfflineTransactionStatus.REJECTED,
-                        error=str(exc.detail),
-                    )
-                )
-                continue
-
-            record.status = OfflineTransactionStatus.APPLIED.value
-            record.applied_transaction_id = txn.id
-            await db.commit()
-            accepted += 1
-            tenant_total += item.amount_minor
-            device_total += item.amount_minor
-            card_totals[item.card_uid] = card_totals.get(item.card_uid, 0) + item.amount_minor
-            results.append(
-                self._result(
-                    item,
-                    OfflineTransactionStatus.APPLIED,
-                    transaction_id=txn.id,
-                )
-            )
-
-        return OfflineSyncResultOut(
-            accepted=accepted,
-            duplicates=duplicates,
-            rejected=rejected,
-            manual_review=manual_review,
-            results=results,
-        )
+                transaction_id = txn.id
+        except HTTPException as exc:
+            record.status = OfflineTransactionStatus.REJECTED.value
+            record.error = str(exc.detail)
+            return self._result(
+                item, OfflineTransactionStatus.REJECTED, error=str(exc.detail)
+            ), False
+        record.status = OfflineTransactionStatus.APPLIED.value
+        record.applied_transaction_id = transaction_id
+        return self._result(
+            item, OfflineTransactionStatus.APPLIED, transaction_id=transaction_id
+        ), False
 
     @staticmethod
     def _record_queue_metrics(
@@ -350,15 +370,7 @@ class DeviceOfflineService:
             error=error,
         )
         db.add(record)
-        try:
-            await db.commit()
-        except IntegrityError:
-            await db.rollback()
-            existing = await self._existing(db, device, item.idempotency_key)
-            if existing is not None:
-                return existing
-            raise
-        await db.refresh(record)
+        await db.flush()
         return record
 
     async def _record_without_applying(
@@ -401,6 +413,29 @@ class DeviceOfflineService:
         )
 
     async def _apply_item(self, db: AsyncSession, device: Device, item: OfflineQueueItem):
+        prior = (
+            await db.execute(
+                select(Transaction).where(
+                    Transaction.tenant_id == device.tenant_id,
+                    Transaction.idempotency_key == item.idempotency_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if prior is not None:
+            if (
+                prior.type != "debit"
+                or prior.amount_minor != item.amount_minor
+                or prior.currency != item.currency.upper()
+                or prior.device_id != device.id
+            ):
+                raise ValidationError(
+                    "Existing ledger transaction does not match offline operation"
+                )
+            return prior
+        org = await db.get(Organization, device.tenant_id)
+        if org is None or item.currency.upper() != org.default_currency.upper():
+            raise ValidationError("Offline operation currency must match venue currency")
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         card = await self._cards.get_card_by_uid(db, device.tenant_id, item.card_uid)
         wallet = await self._cards.resolve_wallet(
             db, device.tenant_id, card, WalletType.CREDIT, item.currency.upper()

@@ -20,7 +20,7 @@ defineEmits<{ close: [] }>();
         @click="$emit('close')"
       />
       <section
-        class="relative z-10 flex h-full w-full max-w-[380px] animate-[drawer-in_180ms_ease-out] flex-col border-l border-line bg-white shadow-panel"
+        class="relative z-10 flex h-full min-w-0 w-full max-w-[380px] animate-[drawer-in_180ms_ease-out] flex-col border-l border-line bg-white shadow-panel"
         role="dialog"
         aria-modal="true"
       >

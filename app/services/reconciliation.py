@@ -1,8 +1,9 @@
-from datetime import UTC, datetime
-from uuid import UUID
+from __future__ import annotations
 
-from sqlalchemy import case, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import case, func, or_, select
 
 from app.core.metrics import set_metric_gauge
 from app.models.ledger.wallet import (
@@ -13,6 +14,11 @@ from app.models.ledger.wallet import (
     Wallet,
 )
 from app.schemas.reconciliation import ReconciliationIssue, ReconciliationReportOut
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ReconciliationService:
@@ -71,17 +77,22 @@ class ReconciliationService:
                     (LedgerEntry.transaction_id == Transaction.id)
                     & (LedgerEntry.tenant_id == tenant_id),
                 )
-                .where(Transaction.tenant_id == tenant_id)
+                .where(
+                    Transaction.tenant_id == tenant_id,
+                    Transaction.status.in_(["posted", "reversed"]),
+                )
                 .group_by(Transaction.id, Transaction.currency)
             )
         ).all()
         for row in transaction_rows:
             debit = int(row.debits)
             credit = int(row.credits)
-            if debit != credit:
+            if debit != credit or (debit == 0 and credit == 0):
                 issues.append(
                     ReconciliationIssue(
-                        kind="unbalanced_transaction",
+                        kind="missing_entries"
+                        if debit == 0 and credit == 0
+                        else "unbalanced_transaction",
                         resource_id=row.id,
                         currency=row.currency,
                         expected_minor=debit,
@@ -140,7 +151,10 @@ class ReconciliationService:
                 .join(LedgerAccount, LedgerAccount.id == LedgerEntry.account_id)
                 .where(
                     LedgerEntry.tenant_id == tenant_id,
-                    LedgerAccount.tenant_id != LedgerEntry.tenant_id,
+                    or_(
+                        LedgerAccount.tenant_id != LedgerEntry.tenant_id,
+                        LedgerAccount.currency != LedgerEntry.currency,
+                    ),
                 )
             )
         ).scalars()

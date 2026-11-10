@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from app.models.audit.audit_log import AuditLog
+
+if TYPE_CHECKING:
+    from uuid import UUID
 
 
 @dataclass(frozen=True)

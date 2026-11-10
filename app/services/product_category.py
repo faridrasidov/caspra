@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 # app/services/product_category.py
-
-from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from app.models.catalog.product import ProductCategory
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ProductCategoryService(TenantScopedService):

@@ -1,9 +1,9 @@
-# app/services/transaction.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/transaction.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError
 from app.models.ledger.wallet import Transaction, TransactionType
@@ -13,6 +13,11 @@ from app.schemas.transaction import (
     TransactionStatsOut,
 )
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TransactionService(TenantScopedService):

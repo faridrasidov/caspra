@@ -1,12 +1,17 @@
-# app/services/notification.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/notification.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant.organization import Notification
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class NotificationService(TenantScopedService):

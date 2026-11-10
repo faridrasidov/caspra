@@ -1,19 +1,25 @@
-# app/services/device_transaction.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/device_transaction.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError
-from app.models.device.device import Device
 from app.models.ledger.wallet import Transaction, TransactionStatus
-from app.schemas.device_txn import (
-    OfflineQueueUploadRequest,
-    OfflineSyncResultOut,
-)
 from app.services.device_offline import DeviceOfflineService
 from app.utils.pagination import paginate_async_query
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models.device.device import Device
+    from app.schemas.device_txn import (
+        OfflineQueueUploadRequest,
+        OfflineSyncResultOut,
+    )
 
 
 class DeviceTransactionService:

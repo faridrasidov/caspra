@@ -1,14 +1,20 @@
-# app/services/kiosk.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/kiosk.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.device.device import Kiosk, KioskLog
-from app.schemas.kiosk import KioskCreate, KioskUpdate
 from app.services.base import TenantScopedService
 from app.utils.pagination import paginate_async_query
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.kiosk import KioskCreate, KioskUpdate
 
 
 class KioskService(TenantScopedService):

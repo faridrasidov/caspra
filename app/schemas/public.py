@@ -172,7 +172,7 @@ class PublicTopupRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     wallet_id: UUID
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     description: str | None = Field(None, max_length=500)
@@ -183,7 +183,7 @@ class PublicRefundRequest(BaseModel):
 
     idempotency_key: UUID
     amount_minor: int | None = Field(
-        None, gt=0, description="Partial refund amount; defaults to full amount"
+        None, strict=True, gt=0, description="Partial refund amount; defaults to full amount"
     )
     reason: str | None = Field(None, max_length=500)
 
@@ -207,7 +207,7 @@ class ExternalTopupStartRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     wallet_id: UUID
-    amount_minor: int = Field(..., gt=0, description="Amount in integer minor units")
+    amount_minor: int = Field(..., strict=True, gt=0, description="Amount in integer minor units")
     currency: str = Field(..., min_length=3, max_length=3)
     idempotency_key: UUID
     customer_id: UUID | None = None

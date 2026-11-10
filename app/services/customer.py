@@ -1,9 +1,9 @@
-# app/services/customer.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/customer.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError
 from app.models.ledger.wallet import Customer, Wallet
@@ -15,6 +15,11 @@ from app.schemas.customer import (
 )
 from app.services.base import TenantScopedService
 
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class CustomerService(TenantScopedService):
     """Manage tenant-scoped end-user cardholders."""
@@ -23,9 +28,11 @@ class CustomerService(TenantScopedService):
     resource_name = "Customer"
 
     async def list_customers(
-        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int, q: str | None = None
     ) -> dict:
-        return await self.paginate(db, tenant_id, page, limit, order_by=Customer.created_at.desc())
+        return await self.paginate(
+            db, tenant_id, page, limit, order_by=Customer.created_at.desc(), q=q
+        )
 
     async def create_customer(
         self, db: AsyncSession, tenant_id: UUID, payload: CustomerCreate
@@ -72,7 +79,7 @@ class CustomerService(TenantScopedService):
 
     async def delete_customer(self, db: AsyncSession, tenant_id: UUID, customer_id: UUID) -> None:
         customer = await self.get_owned(db, customer_id, tenant_id)
-        await db.delete(customer)
+        customer.status = "inactive"
         await db.commit()
 
     async def get_balances(

@@ -2,14 +2,17 @@
 import { RiLoader4Line } from "@remixicon/vue";
 
 import { useAuth } from "./auth/useAuth";
+import { useRoute } from "vue-router";
 import LoginPage from "./pages/LoginPage.vue";
 
 const { loading, user } = useAuth();
+const route = useRoute();
 </script>
 
 <template>
+  <RouterView v-if="route.path.startsWith('/portal')" />
   <div
-    v-if="loading"
+    v-else-if="loading"
     class="grid min-h-screen place-items-center bg-subtle text-sm font-semibold text-muted"
     role="status"
   >

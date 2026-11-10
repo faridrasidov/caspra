@@ -1,15 +1,21 @@
-# tests/conftest.py
+from __future__ import annotations
 
-from collections.abc import AsyncGenerator
+# tests/conftest.py
+from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
 import json
 import os
 import secrets
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
+from alembic import command
+from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
 import pytest
+from sqlalchemy import select, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -18,6 +24,8 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("REDIS_URL", "memory://")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("DEVICE_HMAC_SECRET", "test-device-secret")
+os.environ["DEVICE_HMAC_V1_ENABLED"] = "true"
+os.environ["DEVICE_HMAC_V1_SUNSET_AT"] = (datetime.now(UTC) + timedelta(days=1)).isoformat()
 
 from app.core.config import get_settings
 
@@ -45,6 +53,9 @@ from app.models.tenant.organization import (  # noqa: E402
     Organization,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
 
@@ -66,9 +77,13 @@ async def _seed_tenant_admin(
         session.add(org)
         await session.flush()
 
-        role = Role(name=role_name, description="Tenant admin", is_system=True)
-        session.add(role)
-        await session.flush()
+        role = (
+            await session.execute(select(Role).where(Role.name == role_name))
+        ).scalar_one_or_none()
+        if role is None:
+            role = Role(name=role_name, description="Tenant admin", is_system=True)
+            session.add(role)
+            await session.flush()
 
         admin = User(
             tenant_id=org.id,
@@ -98,16 +113,40 @@ async def db_engine():
     if TEST_DATABASE_URL.startswith("sqlite"):
         # Keep one connection so an in-memory SQLite database is shared by the app.
         engine_kwargs.update(
-            connect_args={"check_same_thread": False},
+            connect_args={"check_same_thread": False, "autocommit": False},
             poolclass=StaticPool,
         )
+    admin_engine = None
+    schema = None
+    if not TEST_DATABASE_URL.startswith("sqlite"):
+        if not (make_url(TEST_DATABASE_URL).database or "").endswith("_test"):
+            raise RuntimeError("PostgreSQL tests require a database name ending in _test")
+        schema = f"test_{uuid4().hex}"
+        admin_engine = create_async_engine(TEST_DATABASE_URL)
+        async with admin_engine.begin() as connection:
+            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+        engine_kwargs["connect_args"] = {"server_settings": {"search_path": schema}}
     engine = create_async_engine(TEST_DATABASE_URL, **engine_kwargs)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        if schema:
+
+            def migrate(connection):
+                config = Config("alembic.ini")
+                config.attributes["connection"] = connection
+                command.upgrade(config, "head")
+
+            await conn.run_sync(migrate)
+        else:
+            await conn.run_sync(Base.metadata.create_all)
     yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    if schema is None:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
+    if admin_engine:
+        async with admin_engine.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+        await admin_engine.dispose()
 
 
 @pytest.fixture
@@ -235,6 +274,7 @@ async def _seed_device_env(
             status=device_status,
             hmac_secret_encrypted=encrypt_device_secret(device_secret),
             hmac_secret_version=1,
+            legacy_payments_enabled=True,
         )
         session.add(device)
         await session.flush()

@@ -13,7 +13,7 @@ class KioskTopupRequestIn(BaseModel):
     kiosk_id: UUID
     customer_id: UUID | None = None
     card_uid: str | None = Field(None, max_length=120)
-    amount_minor: int = Field(..., gt=0)
+    amount_minor: int = Field(..., strict=True, gt=0)
     currency: str = Field(..., min_length=3, max_length=3)
     payment_method: PaymentMethodCode
     idempotency_key: UUID

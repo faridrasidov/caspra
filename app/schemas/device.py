@@ -22,6 +22,7 @@ class DeviceBase(BaseModel):
 
 class DeviceCreate(DeviceBase):
     model_config = ConfigDict(extra="forbid")
+    legacy_payments_enabled: bool = False
 
 
 class DeviceUpdate(BaseModel):
@@ -49,6 +50,9 @@ class DeviceOut(DeviceBase):
     id: UUID
     tenant_id: UUID
     status: DeviceStatus
+    legacy_payments_enabled: bool = False
+    last_seen: datetime | None = None
+    connectivity: str = "unknown"
 
     model_config = ConfigDict(from_attributes=True)
 

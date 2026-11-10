@@ -1,10 +1,10 @@
-# app/services/device_card.py
+from __future__ import annotations
 
+# app/services/device_card.py
 from datetime import UTC, datetime
-from uuid import UUID
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError, ValidationError
 from app.models.device.device import Card, CardStatus
@@ -16,6 +16,11 @@ from app.schemas.device_card import (
     CardVerifyOut,
     WalletBalanceMini,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class DeviceCardService:

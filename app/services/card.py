@@ -1,15 +1,21 @@
-# app/services/card.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/card.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.models.device.device import Card, CardStatus
 from app.models.ledger.wallet import Customer
-from app.schemas.card import CardCreate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.card import CardCreate
 
 
 class CardService(TenantScopedService):
@@ -18,8 +24,10 @@ class CardService(TenantScopedService):
     model = Card
     resource_name = "Card"
 
-    async def list_cards(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
-        return await self.paginate(db, tenant_id, page, limit, order_by=Card.created_at.desc())
+    async def list_cards(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int, q: str | None = None
+    ) -> dict:
+        return await self.paginate(db, tenant_id, page, limit, order_by=Card.created_at.desc(), q=q)
 
     async def register_card(self, db: AsyncSession, tenant_id: UUID, payload: CardCreate) -> Card:
         await self._assert_uid_free(db, tenant_id, payload.uid)

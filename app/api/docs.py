@@ -32,6 +32,7 @@ def register_docs(app: FastAPI) -> None:
         "admin": settings.admin_api_prefix,
         "device": settings.device_api_prefix,
         "public": settings.public_api_prefix,
+        "customer": settings.customer_api_prefix,
     }
 
     def _make_spec_route(prefix: str):

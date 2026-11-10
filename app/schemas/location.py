@@ -2,13 +2,15 @@
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.tenant.organization import LocationStatus
 from app.schemas import PaginationSchema
+from app.utils.validation import timezone_name
 
 
 class LocationBase(BaseModel):
+    _timezone = field_validator("timezone")(timezone_name)
     name: str = Field(..., min_length=1, max_length=200)
     address: str | None = Field(None, max_length=500)
     timezone: str = Field("UTC", max_length=64)
@@ -19,6 +21,7 @@ class LocationCreate(LocationBase):
 
 
 class LocationUpdate(BaseModel):
+    _timezone = field_validator("timezone")(timezone_name)
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(None, min_length=1, max_length=200)

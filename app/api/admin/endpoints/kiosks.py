@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/kiosks.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.kiosk import (
     KioskCreate,
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/kiosks", tags=["admin-kiosks"])
 @router.get("", response_model=PaginatedKioskOut)
 async def list_kiosks(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedKioskOut:
@@ -45,7 +45,9 @@ async def list_kiosks(
 async def create_kiosk(
     payload: KioskCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> KioskOut:
     """Create a kiosk."""
     try:
@@ -63,7 +65,7 @@ async def create_kiosk(
 async def get_kiosk(
     kiosk_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
 ) -> KioskOut:
     """Get a single kiosk."""
     try:
@@ -82,7 +84,9 @@ async def update_kiosk(
     kiosk_id: UUID,
     payload: KioskUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+    ],
 ) -> KioskOut:
     """Update a kiosk."""
     try:
@@ -100,7 +104,7 @@ async def update_kiosk(
 async def list_kiosk_logs(
     kiosk_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedKioskLogOut:

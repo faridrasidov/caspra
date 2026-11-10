@@ -100,3 +100,11 @@ export function toQuery(
   const rendered = query.toString();
   return rendered ? `?${rendered}` : "";
 }
+
+export async function downloadExport(path: string): Promise<Blob> {
+  const perform = () => fetch(path, { credentials: "include", headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} });
+  let response = await perform();
+  if (response.status === 401 && await refreshAccessToken()) response = await perform();
+  if (!response.ok) { const body = await response.json().catch(() => ({})); throw new ApiError(response.status, body.code ?? "export_failed", body.detail ?? "Export download failed"); }
+  return response.blob();
+}

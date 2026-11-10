@@ -1,12 +1,13 @@
-# app/services/auth.py
+from __future__ import annotations
 
+# app/services/auth.py
 from datetime import UTC, datetime, timedelta
 import hashlib
 import secrets
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.admin_permissions import all_admin_permissions
 from app.core.domain_errors import UnauthorizedError
@@ -19,7 +20,11 @@ from app.models.identity.user import (
     User,
     UserStatus,
 )
+from app.models.tenant.organization import Membership
 from app.schemas.auth import TokenOut
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 
@@ -98,15 +103,27 @@ class AuthService:
 
     async def get_permissions(self, db: AsyncSession, user: User) -> list[str]:
         """Return the permission codes granted to the user's role."""
-        if user.role_id is None:
-            return []
-        role = await db.get(Role, user.role_id)
-        if role is not None and role.name in {"admin", "owner", "superadmin"}:
+        role_ids = set(
+            (
+                await db.execute(
+                    select(Membership.role_id).where(
+                        Membership.tenant_id == user.tenant_id,
+                        Membership.user_id == user.id,
+                        Membership.status == "active",
+                        Membership.role_id.is_not(None),
+                    )
+                )
+            ).scalars()
+        )
+        if user.role_id:
+            role_ids.add(user.role_id)
+        roles = list((await db.execute(select(Role).where(Role.id.in_(role_ids)))).scalars())
+        if any(role.name in {"admin", "owner", "superadmin"} for role in roles):
             return all_admin_permissions()
         stmt = (
             select(Permission.code)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
-            .where(RolePermission.role_id == user.role_id)
+            .where(RolePermission.role_id.in_(role_ids))
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -121,7 +138,6 @@ class AuthService:
     async def _issue_tokens(
         self, db: AsyncSession, user: User, *, family_id: UUID
     ) -> tuple[TokenOut, RefreshToken]:
-        access_token = create_access_token(str(user.id))
         raw_refresh = secrets.token_urlsafe(48)
         refresh_row = RefreshToken(
             user_id=user.id,
@@ -131,6 +147,7 @@ class AuthService:
         )
         db.add(refresh_row)
         await db.flush()
+        access_token = create_access_token(str(user.id), session_id=str(refresh_row.id))
         return (
             TokenOut(access_token=access_token, refresh_token=raw_refresh),
             refresh_row,

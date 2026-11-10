@@ -1,15 +1,19 @@
-# app/utils/idempotency.py
+from __future__ import annotations
 
+# app/utils/idempotency.py
 from datetime import date, datetime
 import enum
 import hashlib
 import json
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def canonical_request_hash(operation: str, **values) -> str:

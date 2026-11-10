@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { RiLockPasswordLine } from "@remixicon/vue";
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { ApiError } from "../api/client";
-import { useAuth } from "../auth/useAuth";
+import { staffHome, useAuth } from "../auth/useAuth";
 import FormField from "../components/FormField.vue";
 import UiButton from "../components/UiButton.vue";
 
 const { login } = useAuth();
+const router = useRouter();
 const email = ref("");
 const password = ref("");
 const error = ref("");
@@ -18,6 +20,7 @@ async function submit() {
   submitting.value = true;
   try {
     await login(email.value, password.value);
+    await router.replace(staffHome());
   } catch (caught) {
     error.value =
       caught instanceof ApiError ? caught.message : "Sign in could not be completed";

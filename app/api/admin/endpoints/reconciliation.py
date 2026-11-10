@@ -15,7 +15,7 @@ router = APIRouter(prefix="/ledger", tags=["admin-ledger"])
 
 @router.get("/reconciliation", response_model=ReconciliationReportOut)
 async def reconciliation_report(
-    db: Annotated[AsyncSession, Depends(deps.get_db)],
+    db: Annotated[AsyncSession, Depends(deps.get_snapshot_db)],
     current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.AUDIT_READ))],
     issue_limit: int = Query(500, ge=1, le=5000),
 ) -> ReconciliationReportOut:

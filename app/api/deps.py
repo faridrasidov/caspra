@@ -10,6 +10,7 @@ from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt import PyJWTError as JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from app.core.domain_errors import ForbiddenError, ServiceUnavailableError, Unau
 from app.core.redis import get_redis_optional
 from app.core.scopes import PublicScope
 from app.core.security import (
+    decode_access_token,
     decrypt_device_secret,
     extract_token_subject,
     verify_device_signature,
@@ -29,6 +31,7 @@ from app.models.device.device import Device, DeviceStatus
 from app.models.identity.user import (
     ApiKey,
     Permission,
+    RefreshToken,
     Role,
     RolePermission,
     User,
@@ -45,6 +48,13 @@ _testing_device_nonces: dict[str, float] = {}
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession]:
     session_factory = request.app.state.session_factory
     async with session_factory() as session:
+        yield session
+
+
+async def get_snapshot_db(request: Request) -> AsyncGenerator[AsyncSession]:
+    async with request.app.state.session_factory() as session:
+        if session.get_bind().dialect.name == "postgresql":
+            await session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
         yield session
 
 
@@ -87,6 +97,20 @@ async def get_current_admin(
     user = await db.get(User, current_user)
     if user is None or user.status != UserStatus.ACTIVE.value:
         raise ForbiddenError("Admin access required")
+    try:
+        claims = decode_access_token(request.headers.get("Authorization", "").partition(" ")[2])
+    except JWTError as exc:
+        raise UnauthorizedError("Invalid staff session") from exc
+    session_id = claims.get("sid")
+    if session_id:
+        try:
+            session = await db.get(RefreshToken, UUID(session_id))
+        except (ValueError, TypeError) as exc:
+            raise UnauthorizedError("Invalid staff session") from exc
+        if session is None or session.revoked or session.user_id != user.id:
+            raise UnauthorizedError("Staff session is no longer active")
+    elif not settings.testing:
+        raise UnauthorizedError("Sign in again to establish a staff session")
     if not await _user_has_admin_role(db, user):
         raise ForbiddenError("Admin access required")
     request.state.actor_user_id = user.id

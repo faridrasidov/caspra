@@ -22,10 +22,11 @@ async def list_audit_logs(
     current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.AUDIT_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedAuditLogOut:
     """List audit logs for the caller's tenant."""
     try:
-        result = await AuditService().list_logs(db, current_admin.tenant_id, page, limit)
+        result = await AuditService().list_logs(db, current_admin.tenant_id, page, limit, q=q)
         return PaginatedAuditLogOut(**result)
     except HTTPException:
         raise

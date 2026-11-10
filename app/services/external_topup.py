@@ -1,17 +1,23 @@
-# app/services/external_topup.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/external_topup.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.models.ledger.external_topup import ExternalTopupSession, ExternalTopupStatus
 from app.models.ledger.wallet import Wallet
-from app.schemas.public import ExternalTopupConfirmRequest, ExternalTopupStartRequest
 from app.schemas.wallet import WalletTopupRequest
 from app.services.ledger import LedgerService
 from app.utils.idempotency import canonical_request_hash, find_existing_by_idempotency_key
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.public import ExternalTopupConfirmRequest, ExternalTopupStartRequest
 
 
 class ExternalTopupService:

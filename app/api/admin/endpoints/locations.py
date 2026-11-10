@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/locations.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.location import (
     LocationCreate,
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/locations", tags=["admin-locations"])
 @router.get("", response_model=PaginatedLocationOut)
 async def list_locations(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.ORG_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedLocationOut:
@@ -44,7 +44,9 @@ async def list_locations(
 async def create_location(
     payload: LocationCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.SETTINGS_MANAGE))
+    ],
 ) -> LocationOut:
     """Create a location."""
     try:
@@ -62,7 +64,7 @@ async def create_location(
 async def get_location(
     location_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.ORG_READ))],
 ) -> LocationOut:
     """Get a single location."""
     try:
@@ -81,7 +83,9 @@ async def update_location(
     location_id: UUID,
     payload: LocationUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.SETTINGS_MANAGE))
+    ],
 ) -> LocationOut:
     """Update a location."""
     try:
@@ -101,7 +105,9 @@ async def update_location(
 async def delete_location(
     location_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.SETTINGS_MANAGE))
+    ],
 ) -> None:
     """Delete a location."""
     try:

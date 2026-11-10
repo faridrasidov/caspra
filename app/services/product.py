@@ -1,14 +1,20 @@
-# app/services/product.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/product.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError
 from app.models.catalog.product import Product
-from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.product import ProductCreate, ProductUpdate
 
 
 class ProductService(TenantScopedService):

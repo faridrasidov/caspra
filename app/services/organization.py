@@ -1,27 +1,70 @@
+from __future__ import annotations
+
 # app/services/organization.py
+from typing import TYPE_CHECKING
 
-from uuid import UUID
-
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select, update
 
 from app.core.domain_errors import ConflictError, NotFoundError
 from app.core.security import hash_password
 from app.models.device.device import Card, Device
-from app.models.identity.user import User
+from app.models.identity.user import RefreshToken, Role, User, UserStatus
 from app.models.ledger.wallet import Customer, Transaction
-from app.models.tenant.organization import Organization, OrgSettings
-from app.schemas.organization import (
-    OrganizationUpdate,
-    OrgSettingsUpdate,
-)
+from app.models.tenant.organization import Membership, Organization, OrgSettings
 from app.schemas.public import OrgStatsOut
-from app.schemas.user import UserCreate, UserUpdate
 from app.utils.pagination import paginate_async_query
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.organization import (
+        OrganizationUpdate,
+        OrgSettingsUpdate,
+    )
+    from app.schemas.user import UserCreate, UserUpdate
 
 
 class OrganizationService:
     """Manage the caller's organization, its settings, and member users."""
+
+    async def protect_last_owner(self, db, user, data):
+        await db.execute(
+            select(Organization).where(Organization.id == user.tenant_id).with_for_update()
+        )
+        await db.refresh(user)
+        names = {"admin", "owner", "superadmin"}
+        current = await db.get(Role, user.role_id) if user.role_id else None
+        if current is None or current.name not in names or user.status != "active":
+            return
+        replacement = (
+            await db.get(Role, data["role_id"])
+            if data.get("role_id")
+            else current
+            if "role_id" not in data
+            else None
+        )
+        loses_access = (
+            data.get("status", "active") != "active"
+            or replacement is None
+            or replacement.name not in names
+        )
+        if loses_access:
+            another = (
+                await db.execute(
+                    select(User.id)
+                    .join(Role, Role.id == User.role_id)
+                    .where(
+                        User.tenant_id == user.tenant_id,
+                        User.id != user.id,
+                        User.status == "active",
+                        Role.name.in_(names),
+                    )
+                )
+            ).first()
+            if another is None:
+                raise ConflictError("Keep at least one active venue owner")
 
     async def get_organization(self, db: AsyncSession, tenant_id: UUID) -> Organization:
         org = await db.get(Organization, tenant_id)
@@ -83,6 +126,10 @@ class OrganizationService:
         )
 
     async def create_user(self, db: AsyncSession, tenant_id: UUID, payload: UserCreate) -> User:
+        if payload.role_id is not None:
+            role = await db.get(Role, payload.role_id)
+            if role is None or not role.is_system:
+                raise ConflictError("Assign a built-in staff role")
         existing = await db.execute(select(User).where(User.email == payload.email))
         if existing.scalars().first() is not None:
             raise ConflictError(f"User with email '{payload.email}' already exists")
@@ -112,6 +159,21 @@ class OrganizationService:
     ) -> User:
         user = await self.get_user(db, tenant_id, user_id)
         data = payload.model_dump(exclude_unset=True)
+        if "role_id" in data and data["role_id"] is not None:
+            role = await db.get(Role, data["role_id"])
+            if role is None or not role.is_system:
+                raise ConflictError("Assign a built-in staff role")
+        await self.protect_last_owner(db, user, data)
+        if any(key in data for key in ("role_id", "status", "password")):
+            await db.execute(
+                update(RefreshToken).where(RefreshToken.user_id == user.id).values(revoked=True)
+            )
+        if "role_id" in data:
+            await db.execute(
+                update(Membership)
+                .where(Membership.tenant_id == tenant_id, Membership.user_id == user.id)
+                .values(role_id=data["role_id"])
+            )
         if "password" in data:
             user.hashed_password = hash_password(data.pop("password"))
         for key, value in data.items():
@@ -122,5 +184,9 @@ class OrganizationService:
 
     async def delete_user(self, db: AsyncSession, tenant_id: UUID, user_id: UUID) -> None:
         user = await self.get_user(db, tenant_id, user_id)
-        await db.delete(user)
+        await self.protect_last_owner(db, user, {"status": "inactive"})
+        user.status = UserStatus.INACTIVE.value
+        await db.execute(
+            update(RefreshToken).where(RefreshToken.user_id == user.id).values(revoked=True)
+        )
         await db.commit()

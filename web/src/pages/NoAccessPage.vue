@@ -1,0 +1,1 @@
+<template><section class="rounded border border-line bg-white p-6"><h1 class="font-bold">No venue permissions assigned</h1><p class="mt-2 text-sm text-muted">Ask the venue owner to assign a staff role.</p></section></template>

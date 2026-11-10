@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/vue-query";
 import { ref, watch } from "vue";
 
 import { apiRequest, type TransactionOut } from "../api/client";
-import { formatMoney, formatTime } from "../utils/format";
+import { amountInput, toMinorUnits, formatMoney, formatTime } from "../utils/format";
 import AppDrawer from "./AppDrawer.vue";
 import CommandForm from "./CommandForm.vue";
 import FormField from "./FormField.vue";
@@ -13,11 +13,13 @@ const emit = defineEmits<{ close: [] }>();
 const queryClient = useQueryClient();
 const amount = ref("");
 const reason = ref("");
+const operationKey = ref(crypto.randomUUID());
+watch([amount, reason], () => { operationKey.value = crypto.randomUUID(); });
 
 watch(
   () => props.transaction,
   (transaction) => {
-    amount.value = transaction ? (transaction.amount_minor / 100).toFixed(2) : "";
+    amount.value = transaction ? amountInput(transaction.amount_minor, transaction.currency) : "";
     reason.value = "";
   },
   { immediate: true },
@@ -29,8 +31,8 @@ const refund = useMutation({
     await apiRequest(`/admin/api/v1/transactions/${props.transaction.id}/refund`, {
       method: "POST",
       body: JSON.stringify({
-        idempotency_key: crypto.randomUUID(),
-        amount_minor: Math.round(Number(amount.value) * 100),
+        idempotency_key: operationKey.value,
+        amount_minor: toMinorUnits(amount.value, props.transaction.currency),
         reason: reason.value,
       }),
     });
@@ -72,10 +74,8 @@ const refund = useMutation({
       >
         <input
           v-model="amount"
-          type="number"
-          min="0.01"
-          :max="(transaction.amount_minor / 100).toFixed(2)"
-          step="0.01"
+          type="text"
+          inputmode="decimal"
           required
         />
       </FormField>

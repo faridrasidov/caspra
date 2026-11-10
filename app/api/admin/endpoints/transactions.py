@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin, require_admin_permission
+from app.api.deps import require_admin_permission
 from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.transaction import (
@@ -27,7 +27,9 @@ router = APIRouter(prefix="/transactions", tags=["admin-transactions"])
 @router.get("", response_model=PaginatedTransactionOut)
 async def list_transactions(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.TRANSACTIONS_READ))
+    ],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     type: str | None = Query(None),
@@ -52,7 +54,9 @@ async def list_transactions(
 @router.get("/stats", response_model=TransactionStatsOut)
 async def get_stats(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.TRANSACTIONS_READ))
+    ],
 ) -> TransactionStatsOut:
     """Aggregate transaction statistics for the caller's tenant."""
     try:
@@ -69,7 +73,9 @@ async def get_stats(
 @router.get("/export", response_model=TransactionExportOut)
 async def export_transactions(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.TRANSACTIONS_READ))
+    ],
     format: str = Query("json"),
 ) -> TransactionExportOut:
     """Export transactions for the caller's tenant."""
@@ -88,7 +94,9 @@ async def export_transactions(
 async def get_transaction(
     transaction_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.TRANSACTIONS_READ))
+    ],
 ) -> TransactionOut:
     """Get a single transaction."""
     try:

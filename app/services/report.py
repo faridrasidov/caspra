@@ -1,11 +1,13 @@
-# app/services/report.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/report.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import case, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.device.device import Device
 from app.models.ledger.wallet import Transaction, TransactionType, Wallet
+from app.models.tenant.organization import Organization
 from app.schemas.public import BalancesReportOut, BalancesReportRow
 from app.schemas.report import (
     CustomerActivityOut,
@@ -13,9 +15,15 @@ from app.schemas.report import (
     DailyReportOut,
     DailyReportRow,
     DeviceReportOut,
+    DeviceReportRow,
     ReportExportOut,
     TopProductsOut,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ReportService:
@@ -27,6 +35,8 @@ class ReportService:
 
     async def daily(self, db: AsyncSession, tenant_id: UUID) -> DailyReportOut:
         """Aggregate transaction volume grouped by calendar day."""
+        org = await db.get(Organization, tenant_id)
+        currency = org.default_currency
         day = func.date(Transaction.created_at)
         stmt = (
             select(
@@ -36,12 +46,8 @@ class ReportService:
                     func.sum(
                         case(
                             (
-                                Transaction.type.in_(
-                                    [
-                                        TransactionType.CREDIT.value,
-                                        TransactionType.REFUND.value,
-                                    ]
-                                ),
+                                (Transaction.type == TransactionType.CREDIT.value)
+                                & (Wallet.type == "credit"),
                                 Transaction.amount_minor,
                             ),
                             else_=0,
@@ -53,7 +59,9 @@ class ReportService:
                     func.sum(
                         case(
                             (
-                                Transaction.type == TransactionType.DEBIT.value,
+                                Transaction.type.in_(
+                                    [TransactionType.DEBIT.value, TransactionType.CAPTURE.value]
+                                ),
                                 Transaction.amount_minor,
                             ),
                             else_=0,
@@ -62,7 +70,8 @@ class ReportService:
                     0,
                 ).label("debit"),
             )
-            .where(Transaction.tenant_id == tenant_id)
+            .outerjoin(Wallet, Wallet.id == Transaction.wallet_id)
+            .where(Transaction.tenant_id == tenant_id, Transaction.currency == currency)
             .group_by(day)
             .order_by(day)
         )
@@ -76,12 +85,37 @@ class ReportService:
             )
             for row in result.all()
         ]
-        return DailyReportOut(rows=rows)
+        return DailyReportOut(currency=currency, rows=rows)
 
     async def devices(self, db: AsyncSession, tenant_id: UUID) -> DeviceReportOut:
-        """TODO: per-device sales breakdown (needs sales-line attribution)."""
-        _ = db, tenant_id
-        return DeviceReportOut(rows=[])
+        org = await db.get(Organization, tenant_id)
+        stmt = (
+            select(
+                Device.id,
+                Device.name,
+                func.count(Transaction.id),
+                func.coalesce(func.sum(Transaction.amount_minor), 0),
+            )
+            .join(Transaction, Transaction.device_id == Device.id)
+            .where(
+                Device.tenant_id == tenant_id,
+                Transaction.tenant_id == tenant_id,
+                Transaction.currency == org.default_currency,
+                Transaction.type.in_(["debit", "capture"]),
+            )
+            .group_by(Device.id, Device.name)
+        )
+        return DeviceReportOut(
+            rows=[
+                DeviceReportRow(
+                    device_id=str(device_id),
+                    device_name=name,
+                    transaction_count=count,
+                    total_amount_minor=int(amount),
+                )
+                for device_id, name, count, amount in (await db.execute(stmt)).all()
+            ]
+        )
 
     async def top_products(self, db: AsyncSession, tenant_id: UUID) -> TopProductsOut:
         """TODO: top products by revenue (needs order/line-item model)."""
@@ -91,7 +125,8 @@ class ReportService:
     async def customer_activity(
         self, db: AsyncSession, tenant_id: UUID, limit: int = 50
     ) -> CustomerActivityOut:
-        """Rank customers by transaction count and spend."""
+        """Rank customers by spend in the venue reporting currency."""
+        org = await db.get(Organization, tenant_id)
         stmt = (
             select(
                 Transaction.customer_id,
@@ -101,7 +136,8 @@ class ReportService:
             .where(
                 Transaction.tenant_id == tenant_id,
                 Transaction.customer_id.is_not(None),
-                Transaction.type == TransactionType.DEBIT.value,
+                Transaction.currency == org.default_currency,
+                Transaction.type.in_([TransactionType.DEBIT.value, TransactionType.CAPTURE.value]),
             )
             .group_by(Transaction.customer_id)
             .order_by(func.sum(Transaction.amount_minor).desc())

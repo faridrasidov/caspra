@@ -35,7 +35,7 @@ class RefundRequest(BaseModel):
 
     idempotency_key: UUID
     amount_minor: int | None = Field(
-        None, gt=0, description="Partial refund amount; defaults to full amount"
+        None, strict=True, gt=0, description="Partial refund amount; defaults to full amount"
     )
     reason: str | None = Field(None, max_length=500)
 

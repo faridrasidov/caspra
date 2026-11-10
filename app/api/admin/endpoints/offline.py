@@ -34,7 +34,7 @@ async def update_offline_policy(
     payload: OfflinePolicyUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
     current_admin: Annotated[
-        User, Depends(deps.require_admin_permission(AdminPermission.DEVICES_MANAGE))
+        User, Depends(deps.require_admin_permission(AdminPermission.FINANCIAL_CONTROLS))
     ],
 ) -> OfflinePolicyOut:
     policy = await DeviceOfflineService().update_policy(db, current_admin.tenant_id, payload)

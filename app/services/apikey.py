@@ -1,14 +1,19 @@
-# app/services/apikey.py
+from __future__ import annotations
 
+# app/services/apikey.py
 import hashlib
 import secrets
-from uuid import UUID
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from app.models.identity.user import ApiKey
-from app.schemas.apikey import ApiKeyCreate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.apikey import ApiKeyCreate
 
 
 def _generate_key() -> tuple[str, str, str]:
@@ -26,8 +31,12 @@ class ApiKeyService(TenantScopedService):
     model = ApiKey
     resource_name = "API key"
 
-    async def list_keys(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
-        return await self.paginate(db, tenant_id, page, limit, order_by=ApiKey.created_at.desc())
+    async def list_keys(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int, q: str | None = None
+    ) -> dict:
+        return await self.paginate(
+            db, tenant_id, page, limit, order_by=ApiKey.created_at.desc(), q=q
+        )
 
     async def create_key(
         self,

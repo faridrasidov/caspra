@@ -26,7 +26,10 @@ RUN apt-get update \
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=caspra:caspra . .
 
+RUN mkdir -p /var/lib/caspra/exports && chown caspra:caspra /var/lib/caspra/exports
+
 USER caspra
+ENV EXPORT_DIRECTORY=/var/lib/caspra/exports
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

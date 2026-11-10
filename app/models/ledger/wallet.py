@@ -3,7 +3,15 @@
 import enum
 from uuid import UUID as PyUUID
 
-from sqlalchemy import VARCHAR, BigInteger, CheckConstraint, ForeignKey, UniqueConstraint
+from sqlalchemy import (
+    VARCHAR,
+    BigInteger,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +27,7 @@ class CustomerStatus(enum.StrEnum):
 
 class WalletType(enum.StrEnum):
     CREDIT = "credit"
+    BONUS = "bonus"
     TOKEN = "token"  # noqa: S105
     LOYALTY = "loyalty"
 
@@ -54,6 +63,8 @@ class LedgerDirection(enum.StrEnum):
 
 class LedgerAccountType(enum.StrEnum):
     WALLET_LIABILITY = "wallet_liability"
+    BONUS_LIABILITY = "bonus_liability"
+    PROMOTIONAL_EXPENSE = "promotional_expense"
     CASH_CLEARING = "cash_clearing"
     MERCHANT_REVENUE = "merchant_revenue"
     ADJUSTMENT = "adjustment"
@@ -92,6 +103,16 @@ class Wallet(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
     __tablename__ = "wallets"
     __table_args__ = (
+        Index(
+            "uq_wallet_open_bucket",
+            "tenant_id",
+            "customer_id",
+            "type",
+            "currency",
+            unique=True,
+            postgresql_where=text("status <> 'closed'"),
+            sqlite_where=text("status <> 'closed'"),
+        ),
         CheckConstraint("balance_minor >= 0", name="ck_wallets_non_negative_balance"),
         CheckConstraint(
             "length(currency) = 3 AND currency = upper(currency)",
@@ -156,6 +177,10 @@ class Transaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
 
     __tablename__ = "transactions"
     __table_args__ = (
+        Index("ix_transactions_tenant_history", "tenant_id", "created_at", "id"),
+        Index(
+            "ix_transactions_tenant_device_history", "tenant_id", "device_id", "created_at", "id"
+        ),
         UniqueConstraint(
             "tenant_id", "idempotency_key", name="uq_transactions_tenant_idempotency_key"
         ),
@@ -195,6 +220,9 @@ class Transaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
         index=True,
     )
     description: Mapped[str | None] = mapped_column(VARCHAR(500), nullable=True)
+    location_id: Mapped[PyUUID | None] = mapped_column(
+        ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
 
 
 class LedgerEntry(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):

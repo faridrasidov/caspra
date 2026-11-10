@@ -55,3 +55,4 @@ class WebhookDelivery(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     )
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(VARCHAR(64), nullable=True)

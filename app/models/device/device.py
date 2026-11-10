@@ -4,7 +4,7 @@ from datetime import datetime
 import enum
 from uuid import UUID as PyUUID
 
-from sqlalchemy import JSON, VARCHAR, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import JSON, VARCHAR, Boolean, DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -91,6 +91,10 @@ class Device(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     hmac_secret_rotated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    legacy_payments_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DeviceConfig(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):

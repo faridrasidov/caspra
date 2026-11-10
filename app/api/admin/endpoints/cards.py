@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/cards.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.device.device import CardStatus
 from app.models.identity.user import User
 from app.schemas.card import (
@@ -25,13 +25,14 @@ router = APIRouter(prefix="/cards", tags=["admin-cards"])
 @router.get("", response_model=PaginatedCardOut)
 async def list_cards(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedCardOut:
     """List cards for the caller's tenant."""
     try:
-        result = await CardService().list_cards(db, current_admin.tenant_id, page, limit)
+        result = await CardService().list_cards(db, current_admin.tenant_id, page, limit, q=q)
         return PaginatedCardOut(**result)
     except HTTPException:
         raise
@@ -46,7 +47,7 @@ async def list_cards(
 async def register_card(
     payload: CardCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Register a new card."""
     try:
@@ -64,7 +65,7 @@ async def register_card(
 async def get_card(
     card_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_READ))],
 ) -> CardOut:
     """Get a single card."""
     try:
@@ -83,7 +84,7 @@ async def assign_card(
     card_id: UUID,
     payload: CardAssignRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Assign a card to a customer."""
     try:
@@ -101,7 +102,7 @@ async def assign_card(
 async def unassign_card(
     card_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Unassign a card from its customer."""
     try:
@@ -119,7 +120,7 @@ async def unassign_card(
 async def block_card(
     card_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Block a card."""
     try:
@@ -139,7 +140,7 @@ async def block_card(
 async def unblock_card(
     card_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Unblock a card (return to active)."""
     try:
@@ -159,7 +160,7 @@ async def unblock_card(
 async def reset_card(
     card_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Reset a card to active and unassigned."""
     try:
@@ -178,7 +179,7 @@ async def replace_card(
     card_id: UUID,
     payload: CardReplaceRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.CARDS_WRITE))],
 ) -> CardOut:
     """Replace a lost card with a new one, preserving the customer link."""
     try:

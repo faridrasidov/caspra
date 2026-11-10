@@ -1,9 +1,9 @@
-# app/services/device_kiosk.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/device_kiosk.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import ConflictError, NotFoundError, ValidationError
 from app.models.device.device import Device, Kiosk
@@ -13,14 +13,21 @@ from app.models.device.kiosk_topup import (
     PaymentMethod,
 )
 from app.models.ledger.wallet import Wallet, WalletStatus, WalletType
-from app.schemas.device_kiosk import (
-    KioskTopupConfirmRequest,
-    KioskTopupRequestIn,
-)
 from app.schemas.wallet import WalletTopupRequest
+from app.services.device_capability import DeviceCapabilityService
 from app.services.device_card import DeviceCardService
 from app.services.ledger import LedgerService
 from app.utils.idempotency import find_existing_by_idempotency_key
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.device_kiosk import (
+        KioskTopupConfirmRequest,
+        KioskTopupRequestIn,
+    )
 
 
 class DeviceKioskService:
@@ -33,6 +40,7 @@ class DeviceKioskService:
     async def request_topup(
         self, db: AsyncSession, device: Device, payload: KioskTopupRequestIn
     ) -> KioskTopupSession:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         existing = await find_existing_by_idempotency_key(
             db, KioskTopupSession, payload.idempotency_key, tenant_id
@@ -61,6 +69,7 @@ class DeviceKioskService:
     async def confirm_topup(
         self, db: AsyncSession, device: Device, payload: KioskTopupConfirmRequest
     ) -> KioskTopupSession:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         session = await self._get_session(db, tenant_id, payload.session_id)
         if session.status == KioskTopupStatus.CONFIRMED.value:
@@ -93,6 +102,7 @@ class DeviceKioskService:
     async def cancel_topup(
         self, db: AsyncSession, device: Device, session_id: UUID
     ) -> KioskTopupSession:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         session = await self._get_session(db, device.tenant_id, session_id)
         if session.status == KioskTopupStatus.CANCELLED.value:
             return session

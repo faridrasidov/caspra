@@ -1,10 +1,8 @@
+from __future__ import annotations
+
 # app/services/device_payment.py
+from typing import TYPE_CHECKING
 
-
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.models.device.device import Device
-from app.models.ledger.hold import Hold
 from app.models.ledger.wallet import Transaction
 from app.schemas.device_payment import (
     DeviceCaptureRequest,
@@ -15,8 +13,15 @@ from app.schemas.device_payment import (
     DeviceVoidRequest,
     HoldOut,
 )
+from app.services.device_capability import DeviceCapabilityService
 from app.services.device_card import DeviceCardService
 from app.services.ledger import LedgerService
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.models.device.device import Device
+    from app.models.ledger.hold import Hold
 
 
 class DevicePaymentService:
@@ -29,6 +34,7 @@ class DevicePaymentService:
     async def charge(
         self, db: AsyncSession, device: Device, payload: DeviceChargeRequest
     ) -> DevicePaymentOut:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         card = await self._cards.get_card_by_uid(db, tenant_id, payload.card_uid)
         wallet = await self._cards.resolve_wallet(
@@ -50,6 +56,7 @@ class DevicePaymentService:
     async def refund(
         self, db: AsyncSession, device: Device, payload: DeviceRefundRequest
     ) -> DevicePaymentOut:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         refund = await self._ledger.refund(
             db,
@@ -76,6 +83,7 @@ class DevicePaymentService:
     async def preauth(
         self, db: AsyncSession, device: Device, payload: DevicePreauthRequest
     ) -> HoldOut:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         card = await self._cards.get_card_by_uid(db, tenant_id, payload.card_uid)
         wallet = await self._cards.resolve_wallet(
@@ -97,6 +105,7 @@ class DevicePaymentService:
     async def capture(
         self, db: AsyncSession, device: Device, payload: DeviceCaptureRequest
     ) -> DevicePaymentOut:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         tenant_id = device.tenant_id
         txn = await self._ledger.capture(
             db, tenant_id, payload.hold_id, payload.idempotency_key, payload.amount_minor
@@ -108,6 +117,7 @@ class DevicePaymentService:
         return self._to_payment_out(txn, balance_minor)
 
     async def void(self, db: AsyncSession, device: Device, payload: DeviceVoidRequest) -> HoldOut:
+        await DeviceCapabilityService().assert_legacy_payments(db, device)
         hold = await self._ledger.void(db, device.tenant_id, payload.hold_id)
         return self._to_hold_out(hold)
 

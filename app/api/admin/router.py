@@ -4,11 +4,13 @@ from fastapi import APIRouter
 
 from app.api.admin.endpoints import (
     apikeys,
+    arcade,
     audit,
     auth,
     cards,
     customers,
     devices,
+    history,
     kiosks,
     locations,
     notifications,
@@ -24,6 +26,8 @@ from app.api.admin.endpoints import (
 )
 
 admin_router = APIRouter()
+admin_router.include_router(arcade.router)
+admin_router.include_router(history.router)
 admin_router.include_router(auth.router)
 admin_router.include_router(org.router)
 admin_router.include_router(customers.router)

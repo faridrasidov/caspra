@@ -1,12 +1,18 @@
-# app/services/settings.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/settings.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant.organization import BillingSettings, SecuritySettings
-from app.schemas.settings import BillingSettingsUpdate, SecuritySettingsUpdate
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.settings import BillingSettingsUpdate, SecuritySettingsUpdate
 
 
 class SettingsService:

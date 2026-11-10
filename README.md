@@ -9,7 +9,7 @@ The backend that powers cashless payments for arcades, canteens, festivals, cowo
 [![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688.svg)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/tests-59%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-pytest-blue.svg)](#testing)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL%20v3-blue.svg)](LICENSE)
 
 </div>
@@ -18,33 +18,40 @@ The backend that powers cashless payments for arcades, canteens, festivals, cowo
 
 ## What is Caspra?
 
-Caspra is the backend for a cashless, stored-value payment system. Customers load credit onto an RFID/NFC card or wristband, then tap to pay at readers, kiosks, arcade machines, POS counters, and vending units. It is built **offline-first** and **multi-tenant**, so one deployment can serve many organizations and venues.
+Caspra is the backend for a cashless, stored-value payment system. Customers load credit onto an RFID/NFC card or wristband, then tap to pay at readers, kiosks, arcade machines, POS counters, and vending units. It is **multi-tenant**, so one deployment can serve many organizations and venues. The arcade pilot starts with online spending; offline recovery is available behind explicit tenant policy.
 
-The money layer is an **append-only, double-entry ledger**: balances are derived from immutable entries, amounts are stored as integer minor units (never floats), and every value-moving operation is idempotent and tenant-isolated. That means reader devices can safely replay queued transactions after a network outage — without ever double-spending.
+The money layer is an **append-only, double-entry ledger**: balances are derived from immutable entries, amounts are stored as integer minor units (never floats), and every value-moving operation is idempotent and tenant-isolated. That means reader devices can safely replay queued transactions after a network outage — without charging the same queued operation twice.
 
 > **Open-core.** The server, reader APIs, and SDKs are free and open under AGPL-3.0. Hosted SaaS, hardware kits, and enterprise add-ons are the commercial layer.
 
-## Three API surfaces, one ledger core
+## Four API surfaces, one ledger core
 
-Caspra exposes three separate, independently-secured APIs from a single codebase — the same pattern used by Stripe and Plaid. Each has its own audience, auth model, and OpenAPI docs, and only ever exposes its own endpoints.
+Caspra exposes four separate, independently-secured APIs from a single codebase — the same pattern used by Stripe and Plaid. Each has its own audience, auth model, and OpenAPI docs, and only ever exposes its own endpoints.
 
 | Surface | Base path | Audience | Auth |
 |---|---|---|---|
 | **Admin / Dashboard** | `/admin/api/v1` | Operators, staff, internal dashboards | JWT + RBAC |
-| **Device** | `/device/api/v1` | RFID readers, POS, kiosks, gates | Per-device HMAC, offline-first |
+| **Device** | `/device/api/v1` | RFID readers, POS, kiosks, gates | Per-device HMAC v2, policy-gated offline recovery |
+| **Customer portal** | `/customer/api/v1` | Cardholders and guardians | Separate customer JWT audience and refresh sessions |
 | **Public Developer** | `/public/api/v1` | 3rd-party integrators, mobile apps | API keys + scopes, rate-limited |
 
 ## Features
 
 - **Append-only double-entry ledger** — immutable entries, derived balances, compensating reversals
 - **Money-safe by design** — integer minor units, ISO-4217 currencies, row-locked atomic debits
-- **Offline-first devices** — HMAC-authenticated readers with replay-safe idempotent sync
+- **Recoverable devices** — HMAC-authenticated readers with replay-safe idempotent sync
 - **Multi-tenant isolation** — every account, card, device, and transaction scoped to a tenant
 - **Pre-auth / capture / void** — holds for vending and kiosk flows
-- **Cards & wallets** — issuance, assignment, block/replace, multiple balance types (credit / token / loyalty)
+- **Cards & wallets** — issuance, assignment, block/replace, multiple balance types (paid credit / bonus / token / loyalty)
 - **Device fleet management** — registration, config, telemetry, firmware/OTA, command queue
-- **Webhooks** — `transaction.created`, `topup.completed`, `card.balance.updated`, `device.status.changed`, and more
+- **Webhooks** — transactional delivery of `transaction.posted`, `transaction.refunded`, and `topup.confirmed`
 - **Beautiful API docs** — per-surface Scalar reference pages, plus Swagger UI and ReDoc
+
+## Arcade pilot
+
+The implementation includes machine prices and play outcomes, paid/bonus credit, cashier shifts and receipts, family allowances, a customer portal, operational alerts, reconciliation controls, cursor history, and background exports. Live payment processing remains disabled until a provider is selected.
+
+See [pilot setup and rollout](docs/arcade-pilot.md), [reader contract](docs/reader-contract.md), and [operations](docs/operations.md).
 
 ## Tech stack
 
@@ -117,7 +124,8 @@ The suite covers HTTP integration tests per surface, ledger money-correctness (i
 app/
   api/
     admin/        # /admin/api/v1  — dashboard API (JWT + RBAC)
-    device/       # /device/api/v1 — reader/POS API (HMAC, offline-first)
+    device/       # /device/api/v1 — reader/POS API (HMAC)
+    customer/     # /customer/api/v1 — authenticated customer and guardian portal
     public/       # /public/api/v1 — 3rd-party API (API keys + scopes)
     v1/           # health check
     deps.py       # shared dependencies (db, user auth, device auth)

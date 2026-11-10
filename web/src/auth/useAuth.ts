@@ -1,4 +1,5 @@
 import { readonly, ref } from "vue";
+import { queryClient } from "../api/queryClient";
 
 import {
   apiRequest,
@@ -19,6 +20,7 @@ export async function reloadIdentity() {
     apiRequest<MeOut>("/admin/api/v1/auth/me"),
     apiRequest<Schemas["PermissionsOut"]>("/admin/api/v1/auth/permissions"),
   ]);
+  if (user.value?.id !== profile.id) queryClient.clear();
   user.value = profile;
   permissions.value = new Set(permissionResult.permissions);
 }
@@ -57,7 +59,16 @@ export async function logout() {
     setAccessToken(null);
     user.value = null;
     permissions.value = new Set();
+    queryClient.clear();
   }
+}
+
+export function staffHome() {
+  if (permissions.value.has("reports:read")) return "/";
+  if (permissions.value.has("shifts:operate")) return "/cashier";
+  if (permissions.value.has("machines:read")) return "/machines";
+  if (permissions.value.has("customers:read")) return "/customers";
+  return "/no-access";
 }
 
 export function useAuth() {

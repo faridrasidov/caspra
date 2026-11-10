@@ -1,10 +1,13 @@
-# app/utils/pagination.py
+from __future__ import annotations
 
+# app/utils/pagination.py
 import math
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Select, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def paginate_async_query(
@@ -18,7 +21,7 @@ async def paginate_async_query(
 ) -> dict[str, Any]:
     """Execute a paginated async query and return {page, total, pages, items}."""
     if count_query is None:
-        count_query = select(func.count()).select_from(base_query.subquery())
+        count_query = select(func.count()).select_from(base_query.order_by(None).subquery())
 
     total_result = await session.execute(count_query)
     total = total_result.scalar_one()

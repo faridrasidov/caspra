@@ -1,12 +1,12 @@
 # app/api/admin/endpoints/reports.py
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.report import (
     CustomerActivityOut,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/reports", tags=["admin-reports"])
 @router.get("/daily", response_model=DailyReportOut)
 async def daily_report(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.REPORTS_READ))],
 ) -> DailyReportOut:
     """Daily transaction volume report."""
     try:
@@ -38,7 +38,7 @@ async def daily_report(
 @router.get("/customer-activity", response_model=CustomerActivityOut)
 async def customer_activity_report(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.REPORTS_READ))],
     limit: int = Query(50, ge=1, le=500),
 ) -> CustomerActivityOut:
     """Customer spend/activity ranking."""
@@ -56,7 +56,7 @@ async def customer_activity_report(
 @router.get("/export", response_model=ReportExportOut)
 async def export_report(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.REPORTS_READ))],
     report: str = Query("daily"),
     format: str = Query("json"),
 ) -> ReportExportOut:

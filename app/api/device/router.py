@@ -10,6 +10,7 @@ from app.api.device.endpoints import (
     kiosk,
     offline,
     payment,
+    plays,
     settings,
     sync,
     system,
@@ -17,6 +18,7 @@ from app.api.device.endpoints import (
 )
 
 device_router = APIRouter()
+device_router.include_router(plays.router)
 device_router.include_router(auth.router)
 device_router.include_router(card.router)
 device_router.include_router(payment.router)

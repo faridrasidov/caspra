@@ -24,7 +24,15 @@ import { useAuth } from "../auth/useAuth";
 import IconButton from "./IconButton.vue";
 
 const navigation = [
-  { to: "/", label: "Overview", icon: RiDashboardLine },
+  { to: "/", label: "Overview", icon: RiDashboardLine, permission: "reports:read" },
+  { to: "/reports", label: "Machine reports", icon: RiFileList3Line, permission: "reports:read" },
+  { to: "/machines", label: "Machines", icon: RiRfidLine, permission: "machines:read" },
+  { to: "/plays", label: "Machine plays", icon: RiHistoryLine, permission: "plays:read" },
+  { to: "/cashier", label: "Cashier shifts", icon: RiWallet3Line, permission: "shifts:operate" },
+  { to: "/pricing", label: "Packages & pricing", icon: RiBankCardLine, permission: "pricing:manage" },
+  { to: "/families", label: "Families", icon: RiGroupLine, permission: "family:manage" },
+  { to: "/alerts", label: "Operational alerts", icon: RiNotificationLine, permission: "alerts:read" },
+  { to: "/staff", label: "Staff access", icon: RiKey2Line, permission: "users:manage" },
   { to: "/customers", label: "Customers", icon: RiGroupLine, permission: "customers:read" },
   { to: "/cards", label: "Cards", icon: RiBankCardLine, permission: "cards:read" },
   { to: "/wallets", label: "Wallets", icon: RiWallet3Line, permission: "wallets:read" },
@@ -39,7 +47,7 @@ const navigation = [
     to: "/offline",
     label: "Offline review",
     icon: RiWifiOffLine,
-    permission: "transactions:read",
+    permission: "audit:read",
   },
   {
     to: "/webhooks",
@@ -85,7 +93,7 @@ const visibleNavigation = computed(() =>
       @click="mobileNav = false"
     />
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-[min(280px,86vw)] -translate-x-full flex-col bg-sidebar text-white transition-transform duration-200 md:sticky md:top-0 md:h-screen md:w-auto md:translate-x-0"
+      class="fixed inset-y-0 left-0 z-40 flex w-[min(280px,86vw)] -translate-x-full flex-col bg-sidebar text-white transition-transform duration-200 md:sticky md:top-0 md:h-screen md:overflow-y-auto md:w-auto md:translate-x-0"
       :class="mobileNav ? 'translate-x-0 shadow-[10px_0_30px_rgb(20_24_28/24%)]' : ''"
     >
       <div class="flex h-16 shrink-0 items-center gap-2.5 px-[18px] text-[15px] font-extrabold tracking-[0.04em]">
@@ -114,7 +122,7 @@ const visibleNavigation = computed(() =>
       </nav>
       <div class="mt-auto flex items-center gap-2 border-t border-sidebar-raised px-[18px] py-5 text-[10px] text-[#d8dde1]">
         <span class="size-2 rounded-full bg-[#21b34b]" aria-hidden="true" />
-        All systems operational
+        Venue operations
       </div>
     </aside>
 

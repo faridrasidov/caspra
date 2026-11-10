@@ -12,8 +12,10 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -178,3 +180,21 @@ class DeviceHeartbeat(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
     status: Mapped[HeartbeatStatus] = mapped_column(
         VARCHAR(20), nullable=False, default=HeartbeatStatus.ONLINE.value
     )
+
+
+class DeviceOutage(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base):
+    __tablename__ = "device_outages"
+    __table_args__ = (
+        Index(
+            "uq_device_open_outage",
+            "device_id",
+            unique=True,
+            postgresql_where=text("closed_at IS NULL"),
+            sqlite_where=text("closed_at IS NULL"),
+        ),
+    )
+    device_id: Mapped[PyUUID] = mapped_column(
+        ForeignKey("devices.id", ondelete="RESTRICT"), index=True
+    )
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -36,6 +36,7 @@ services:
         condition: service_healthy
 
   api:
+    volumes: [exports:/var/lib/caspra/exports]
     build:
       context: .
       dockerfile: Dockerfile
@@ -52,6 +53,7 @@ services:
     stop_grace_period: 30s
 
   worker:
+    volumes: [exports:/var/lib/caspra/exports]
     build:
       context: .
       dockerfile: Dockerfile
@@ -83,3 +85,4 @@ services:
 
 volumes:
   pgdata:
+  exports:

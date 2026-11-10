@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     admin_api_prefix: str = "/admin/api/v1"
     device_api_prefix: str = "/device/api/v1"
     public_api_prefix: str = "/public/api/v1"
+    customer_api_prefix: str = "/customer/api/v1"
+    payment_provider: Literal["disabled", "sandbox"] = "disabled"
+    export_directory: str = "var/exports"
 
     public_rate_limit_per_minute: int = 600
 
@@ -91,6 +94,8 @@ def validate_runtime_settings(current: Settings = settings) -> None:
         raise RuntimeError(f"Unsafe production secrets: {joined}")
     if current.debug:
         raise RuntimeError("DEBUG must be false in production")
+    if current.payment_provider == "sandbox":
+        raise RuntimeError("Sandbox payments cannot run in production")
     if "*" in current.cors_origins:
         raise RuntimeError("Wildcard CORS origins are not allowed in production")
     if current.device_hmac_v1_enabled:

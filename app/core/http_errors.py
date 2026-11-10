@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.audit_context import AuditRequestContext, audit_request_context
 from app.core.domain_errors import DomainError
-from app.core.metrics import increment_metric
+from app.core.metrics import increment_metric, observe_metric
 from app.core.request_context import request_id_context
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,14 @@ def register_http_controls(app: FastAPI) -> None:
             response_status = response.status_code
         finally:
             elapsed_ms = (time.perf_counter() - started) * 1000
+            observe_metric(
+                "http_request_duration_seconds",
+                elapsed_ms / 1000,
+                method=request.method,
+                route=(
+                    request.scope.get("route").path if request.scope.get("route") else "unmatched"
+                ),
+            )
             logger.info(
                 "request_complete",
                 extra={
@@ -85,7 +93,7 @@ def register_http_controls(app: FastAPI) -> None:
         increment_metric(
             "http_requests_total",
             method=request.method,
-            path=request.url.path,
+            path=(request.scope.get("route").path if request.scope.get("route") else "unmatched"),
             status=response.status_code,
         )
         return response

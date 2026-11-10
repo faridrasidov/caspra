@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/products.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.product import (
     PaginatedProductOut,
@@ -23,7 +23,9 @@ router = APIRouter(prefix="/products", tags=["admin-products"])
 @router.get("", response_model=PaginatedProductOut)
 async def list_products(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.MACHINES_READ))
+    ],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ) -> PaginatedProductOut:
@@ -44,7 +46,9 @@ async def list_products(
 async def create_product(
     payload: ProductCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.PRICING_MANAGE))
+    ],
 ) -> ProductOut:
     """Create a product."""
     try:
@@ -62,7 +66,9 @@ async def create_product(
 async def get_product(
     product_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.MACHINES_READ))
+    ],
 ) -> ProductOut:
     """Get a single product."""
     try:
@@ -81,7 +87,9 @@ async def update_product(
     product_id: UUID,
     payload: ProductUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.PRICING_MANAGE))
+    ],
 ) -> ProductOut:
     """Update a product."""
     try:
@@ -101,7 +109,9 @@ async def update_product(
 async def delete_product(
     product_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.PRICING_MANAGE))
+    ],
 ) -> None:
     """Delete a product."""
     try:

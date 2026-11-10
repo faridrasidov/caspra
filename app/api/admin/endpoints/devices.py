@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin, require_admin_permission
+from app.api.deps import require_admin_permission
 from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.device import (
@@ -32,13 +32,14 @@ router = APIRouter(prefix="/devices", tags=["admin-devices"])
 @router.get("", response_model=PaginatedDeviceOut)
 async def list_devices(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedDeviceOut:
     """List devices for the caller's tenant."""
     try:
-        result = await DeviceService().list_devices(db, current_admin.tenant_id, page, limit)
+        result = await DeviceService().list_devices(db, current_admin.tenant_id, page, limit, q=q)
         return PaginatedDeviceOut(**result)
     except HTTPException:
         raise
@@ -54,7 +55,7 @@ async def register_device(
     payload: DeviceCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
     current_admin: Annotated[
-        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_CREDENTIALS))
     ],
 ) -> DeviceProvisioningOut:
     """Register a new device."""
@@ -81,7 +82,7 @@ async def rotate_device_credentials(
     device_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
     current_admin: Annotated[
-        User, Depends(require_admin_permission(AdminPermission.DEVICES_MANAGE))
+        User, Depends(require_admin_permission(AdminPermission.DEVICES_CREDENTIALS))
     ],
 ) -> DeviceCredentialOut:
     device, raw_secret = await DeviceService().rotate_credentials(
@@ -98,7 +99,7 @@ async def rotate_device_credentials(
 async def get_device(
     device_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
 ) -> DeviceOut:
     """Get a single device."""
     try:
@@ -205,7 +206,7 @@ async def reset_device(
 async def get_device_config(
     device_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
 ) -> DeviceConfigOut:
     """Get a device's configuration."""
     try:
@@ -244,9 +245,10 @@ async def update_device_config(
 async def list_device_events(
     device_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.DEVICES_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedDeviceEventOut:
     """List events emitted by a device."""
     try:

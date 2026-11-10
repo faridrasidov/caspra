@@ -2,6 +2,12 @@
 
 from decimal import ROUND_HALF_UP, Decimal
 
+from babel.numbers import get_currency_precision
+
+
+def currency_exponent(currency: str) -> int:
+    return get_currency_precision(currency)
+
 
 def to_minor_units(amount: Decimal, exponent: int = 2) -> int:
     """Convert a decimal amount to integer minor units (e.g. cents)."""
@@ -18,6 +24,8 @@ def from_minor_units(amount_minor: int, exponent: int = 2) -> Decimal:
 
 def assert_integer_amount(amount: int | float) -> int:
     """Reject float amounts — money must be stored as integer minor units."""
-    if isinstance(amount, float):
+    if isinstance(amount, bool) or not isinstance(amount, int):
         raise ValueError("Money amounts must be integer minor units, not float")
+    if amount <= 0:
+        raise ValueError("Money amounts must be positive")
     return int(amount)

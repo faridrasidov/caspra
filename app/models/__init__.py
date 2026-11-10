@@ -5,6 +5,7 @@
 
 from app.db.session import Base
 from app.models.audit.audit_log import AuditLog
+from app.models.catalog.arcade import Machine, PlaySession, PriceRevision, PricingSchedule
 from app.models.catalog.product import Product, ProductCategory
 from app.models.device.device import (
     Card,
@@ -21,11 +22,13 @@ from app.models.device.kiosk_topup import (
 from app.models.device.management import (
     DeviceCommand,
     DeviceHeartbeat,
+    DeviceOutage,
     DeviceTelemetry,
     DeviceToken,
     Firmware,
     FirmwareUpdate,
 )
+from app.models.identity.customer import CustomerIdentity, CustomerSession, PaymentCheckout
 from app.models.identity.user import (
     ApiKey,
     Permission,
@@ -40,6 +43,7 @@ from app.models.ledger.hold import (
     OfflineTransaction,
     TempCardAssignment,
 )
+from app.models.ledger.operations import FinancialControl, ReconciliationRun, TransactionAllocation
 from app.models.ledger.wallet import (
     Customer,
     LedgerAccount,
@@ -49,6 +53,7 @@ from app.models.ledger.wallet import (
     Wallet,
     WalletTransfer,
 )
+from app.models.tenant.exports import ExportJob
 from app.models.tenant.organization import (
     BillingSettings,
     Location,
@@ -60,6 +65,15 @@ from app.models.tenant.organization import (
     SecuritySettings,
     Webhook,
 )
+from app.models.tenant.venue import (
+    CashierShift,
+    CashMovement,
+    FamilyRelationship,
+    OperationalAlert,
+    Receipt,
+    SpendingLimit,
+    TopupPackage,
+)
 from app.models.tenant.webhook_delivery import WebhookDelivery
 
 __all__ = [
@@ -68,15 +82,23 @@ __all__ = [
     "Base",
     "BillingSettings",
     "Card",
+    "CashMovement",
+    "CashierShift",
     "Customer",
+    "CustomerIdentity",
+    "CustomerSession",
     "Device",
     "DeviceCommand",
     "DeviceConfig",
     "DeviceEvent",
     "DeviceHeartbeat",
+    "DeviceOutage",
     "DeviceTelemetry",
     "DeviceToken",
+    "ExportJob",
     "ExternalTopupSession",
+    "FamilyRelationship",
+    "FinancialControl",
     "Firmware",
     "FirmwareUpdate",
     "Hold",
@@ -86,23 +108,34 @@ __all__ = [
     "LedgerAccount",
     "LedgerEntry",
     "Location",
+    "Machine",
     "Membership",
     "Notification",
     "OfflinePolicy",
     "OfflineTransaction",
+    "OperationalAlert",
     "OrgSettings",
     "Organization",
+    "PaymentCheckout",
     "PaymentMethod",
     "Permission",
+    "PlaySession",
+    "PriceRevision",
+    "PricingSchedule",
     "Product",
     "ProductCategory",
+    "Receipt",
+    "ReconciliationRun",
     "RefreshToken",
     "Refund",
     "Role",
     "RolePermission",
     "SecuritySettings",
+    "SpendingLimit",
     "TempCardAssignment",
+    "TopupPackage",
     "Transaction",
+    "TransactionAllocation",
     "User",
     "Wallet",
     "WalletTransfer",

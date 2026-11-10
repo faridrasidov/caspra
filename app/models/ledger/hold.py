@@ -161,3 +161,7 @@ class OfflineTransaction(UUIDPrimaryKeyMixin, TenantMixin, TimestampMixin, Base)
         ),
         nullable=True,
     )
+
+    @property
+    def currency(self) -> str | None:
+        return self.payload.get("currency")

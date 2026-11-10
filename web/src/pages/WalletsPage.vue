@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { RiWallet3Line } from "@remixicon/vue";
 import { useMutation, useQueryClient } from "@tanstack/vue-query";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 
+import { useAuth } from "../auth/useAuth";
+import { toMinorUnits } from "../utils/format";
 import { apiRequest } from "../api/client";
 import AppDrawer from "../components/AppDrawer.vue";
 import CommandForm from "../components/CommandForm.vue";
@@ -17,6 +19,9 @@ const endpoint = "/admin/api/v1/wallets";
 const queryClient = useQueryClient();
 const wallet = ref<ResourceRecord | null>(null);
 const amount = ref("");
+const { permissions } = useAuth();
+const operationKey = ref(crypto.randomUUID());
+watch([amount, wallet], () => { operationKey.value = crypto.randomUUID(); });
 const reason = ref("");
 const columns: ResourceColumn[] = [
   { key: "id", label: "Wallet" },
@@ -31,8 +36,8 @@ const topup = useMutation({
     apiRequest(`/admin/api/v1/wallets/${wallet.value?.id}/topup`, {
       method: "POST",
       body: JSON.stringify({
-        idempotency_key: crypto.randomUUID(),
-        amount_minor: Math.round(Number(amount.value) * 100),
+        idempotency_key: operationKey.value,
+        amount_minor: toMinorUnits(amount.value, String(wallet.value?.currency)),
         currency: wallet.value?.currency,
         description: reason.value,
       }),
@@ -52,7 +57,7 @@ const topup = useMutation({
     description="Cached balances backed by immutable ledger entries."
     :endpoint="endpoint"
     :columns="columns"
-    row-actions
+    :row-actions="permissions.has('wallets:adjust')"
   >
     <template #row-action="{ row }">
       <IconButton label="Top up wallet" :icon="RiWallet3Line" @click="wallet = row" />
@@ -66,7 +71,7 @@ const topup = useMutation({
       @cancel="wallet = null"
     >
       <FormField label="Amount">
-        <input v-model="amount" type="number" min="0.01" step="0.01" required />
+        <input v-model="amount" type="text" inputmode="decimal" required />
       </FormField>
       <FormField label="Reason required"><input v-model="reason" required /></FormField>
       <p v-if="topup.error.value" class="text-[12px] text-danger" role="alert">{{ topup.error.value.message }}</p>

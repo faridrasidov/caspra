@@ -1,5 +1,4 @@
 # app/api/admin/endpoints/customers.py
-
 from typing import Annotated
 from uuid import UUID
 
@@ -7,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin
+from app.api.deps import require_admin_permission
+from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.customer import (
     CustomerBalancesOut,
@@ -27,13 +27,18 @@ router = APIRouter(prefix="/customers", tags=["admin-customers"])
 @router.get("", response_model=PaginatedCustomerOut)
 async def list_customers(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_READ))
+    ],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedCustomerOut:
     """List customers for the caller's tenant."""
     try:
-        result = await CustomerService().list_customers(db, current_admin.tenant_id, page, limit)
+        result = await CustomerService().list_customers(
+            db, current_admin.tenant_id, page, limit, q=q
+        )
         return PaginatedCustomerOut(**result)
     except HTTPException:
         raise
@@ -48,7 +53,9 @@ async def list_customers(
 async def create_customer(
     payload: CustomerCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_WRITE))
+    ],
 ) -> CustomerOut:
     """Create a customer for the caller's tenant."""
     try:
@@ -66,7 +73,9 @@ async def create_customer(
 async def import_customers(
     payload: CustomerImportRequest,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_WRITE))
+    ],
 ) -> CustomerImportResult:
     """Bulk-import customers, skipping duplicates by external_id."""
     try:
@@ -84,7 +93,9 @@ async def import_customers(
 async def get_customer(
     customer_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_READ))
+    ],
 ) -> CustomerOut:
     """Get a single customer."""
     try:
@@ -103,7 +114,9 @@ async def update_customer(
     customer_id: UUID,
     payload: CustomerUpdate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_WRITE))
+    ],
 ) -> CustomerOut:
     """Update a customer."""
     try:
@@ -123,7 +136,9 @@ async def update_customer(
 async def delete_customer(
     customer_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_WRITE))
+    ],
 ) -> None:
     """Delete a customer."""
     try:
@@ -141,7 +156,9 @@ async def delete_customer(
 async def get_customer_balances(
     customer_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.CUSTOMERS_READ))
+    ],
 ) -> CustomerBalancesOut:
     """Return the customer's wallet balances."""
     try:

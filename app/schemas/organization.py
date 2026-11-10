@@ -2,19 +2,22 @@
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.tenant.organization import OrgStatus
+from app.utils.validation import iso_currency, timezone_name
 
 # ========== Organization Schemas ==========
 
 
 class OrganizationBase(BaseModel):
+    _currency = field_validator("default_currency")(iso_currency)
     name: str = Field(..., min_length=1, max_length=200)
     default_currency: str = Field("USD", min_length=3, max_length=3)
 
 
 class OrganizationUpdate(BaseModel):
+    _currency = field_validator("default_currency")(iso_currency)
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(None, min_length=1, max_length=200)
@@ -34,6 +37,7 @@ class OrganizationOut(OrganizationBase):
 
 
 class OrgSettingsUpdate(BaseModel):
+    _timezone = field_validator("timezone")(timezone_name)
     model_config = ConfigDict(extra="forbid")
 
     timezone: str | None = Field(None, max_length=64)

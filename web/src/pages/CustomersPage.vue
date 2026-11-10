@@ -47,7 +47,9 @@ const create = useMutation({
     description="Customer identities and stored-value relationships."
     :endpoint="endpoint"
     :columns="columns"
+    row-actions
   >
+    <template #row-action="{ row }"><RouterLink :to="`/customers/${row.id}`" class="text-primary underline">Open account</RouterLink></template>
     <template #actions>
       <UiButton :icon="RiAddLine" @click="open = true">Add customer</UiButton>
     </template>

@@ -15,6 +15,12 @@ const transaction = {
 };
 
 const permissions = [
+  "reports:read",
+  "machines:read",
+  "machines:manage",
+  "plays:read",
+  "plays:resolve",
+  "shifts:operate",
   "customers:read",
   "customers:write",
   "cards:read",
@@ -72,7 +78,8 @@ async function mockApi(page: Page) {
     if (path.endsWith("/auth/permissions")) {
       return json({ permissions });
     }
-    if (path.endsWith("/transactions") && method === "GET") {
+    if (path.endsWith("/overview")) return json({ generated_at: "2026-11-10T12:00:00Z", timezone: "UTC", currencies: [{ currency: "USD", exponent: 2, paid_balance_minor: 12543068, bonus_balance_minor: 0, topup_minor: 4831520, spend_minor: 3681244, refund_minor: 0, net_spend_minor: 3681244, adjustment_minor: 0 }], today: [{ currency: "USD", topup_minor: 4831520, spend_minor: 3681244, refund_minor: 0 }], daily: [{ day: "2026-11-10", currency: "USD", topup_minor: 4831520, spend_minor: 3681244, refund_minor: 0 }], reconciliation: { generated_at: "2026-11-10T12:00:00Z", healthy: true, issues: [] }, reconciliation_state: "healthy", device_counts: { online: 1, offline: 0, unknown: 0, inactive: 0 }, exceptions: { plays: 0, offline: 0, webhooks: 0 } });
+    if ((path.endsWith("/transactions") || path.endsWith("/transactions/history")) && method === "GET") {
       return json({ items: [transaction], total: 1, page: 1, limit: 100 });
     }
     if (path.endsWith("/transactions/stats")) {
@@ -220,7 +227,7 @@ test("operator can sign in, inspect a charge, and submit a refund", async ({
   page,
 }, testInfo) => {
   await login(page);
-  const screenshotDirectory = process.env.CASPRA_SCREENSHOT_DIR ?? "../docs/design";
+  const screenshotDirectory = process.env.CASPRA_SCREENSHOT_DIR ?? testInfo.outputDir;
   const mobileProject = testInfo.project.name.includes("mobile");
   await page.screenshot({
     path: mobileProject
@@ -237,12 +244,13 @@ test("operator can sign in, inspect a charge, and submit a refund", async ({
       fullPage: true,
     });
   }
+  await page.getByLabel("Refund amount").fill("7.50");
   await page.getByLabel("Reason required").selectOption("Customer request");
   const refundRequest = page.waitForRequest(
     (request) => request.url().endsWith("/refund") && request.method() === "POST",
   );
   await page.getByRole("button", { name: "Confirm refund" }).click();
-  await refundRequest;
+  expect((await refundRequest).postDataJSON().amount_minor).toBe(750);
 });
 
 test("operator can register an assigned card and initiate a wallet top-up", async ({

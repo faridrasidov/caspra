@@ -7,6 +7,8 @@
 [tool.ruff]
 target-version = "py313"
 line-length    = 100
+# The application and CI still support Python 3.13.
+per-file-target-version = { "app/**/*.py" = "py313", "tests/**/*.py" = "py313", "scripts/**/*.py" = "py313" }
 
 # Ruff already ignores: .git, .venv, __pycache__, build, dist
 exclude = [
@@ -149,10 +151,12 @@ ignore = [
 "**/routers/**/*.py" = [
     "B008",     # Depends() in function defaults — already globally ignored but explicit here
 ]
-"**/api/**/*.py" = ["B008"]
+"**/api/**/*.py" = ["B008", "TC001", "TC002", "TC003"] # FastAPI evaluates annotations
+"app/schemas/**/*.py" = ["TC001", "TC002", "TC003"] # Pydantic evaluates annotations
 
 # ── SQLAlchemy models ─────────────────────────────────────────────────────────
 "**/models/**/*.py" = [
+    "TC001", "TC002", "TC003", # SQLAlchemy evaluates mapped annotations
     "A003",     # `id`, `type`, `metadata` shadow builtins — idiomatic in ORMs
     "RUF012",   # Pydantic/SQLAlchemy fields look mutable but aren't
     "N805",     # @declared_attr uses `cls` as first arg, not `self`
@@ -217,8 +221,9 @@ raises-require-match-for = ["*"]   # `pytest.raises(X)` must include `match=`
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.flake8-type-checking]
+quote-annotations = true
 # Keep Pydantic model annotations at runtime (Pydantic v2 needs them).
-runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic.BaseSettings"]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic_settings.BaseSettings"]
 # SQLAlchemy DeclarativeBase also needs runtime annotations.
 runtime-evaluated-decorators   = ["sqlalchemy.orm.mapped_column"]
 

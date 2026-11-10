@@ -1,14 +1,20 @@
-# app/services/wallet.py
+from __future__ import annotations
 
-from uuid import UUID
+# app/services/wallet.py
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.domain_errors import NotFoundError
+from app.core.domain_errors import ConflictError, NotFoundError
 from app.models.ledger.wallet import Customer, Wallet
-from app.schemas.wallet import WalletCreate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.wallet import WalletCreate
 
 
 class WalletService(TenantScopedService):
@@ -17,8 +23,12 @@ class WalletService(TenantScopedService):
     model = Wallet
     resource_name = "Wallet"
 
-    async def list_wallets(self, db: AsyncSession, tenant_id: UUID, page: int, limit: int) -> dict:
-        return await self.paginate(db, tenant_id, page, limit, order_by=Wallet.created_at.desc())
+    async def list_wallets(
+        self, db: AsyncSession, tenant_id: UUID, page: int, limit: int, q: str | None = None
+    ) -> dict:
+        return await self.paginate(
+            db, tenant_id, page, limit, order_by=Wallet.created_at.desc(), q=q
+        )
 
     async def create_wallet(
         self, db: AsyncSession, tenant_id: UUID, payload: WalletCreate
@@ -35,6 +45,15 @@ class WalletService(TenantScopedService):
             currency=payload.currency,
             type=payload.type.value,
         )
+        existing = select(Wallet.id).where(
+            Wallet.tenant_id == tenant_id,
+            Wallet.customer_id == payload.customer_id,
+            Wallet.type == payload.type.value,
+            Wallet.currency == payload.currency,
+            Wallet.status != "closed",
+        )
+        if (await db.execute(existing)).first():
+            raise ConflictError("Customer already has an open wallet of this type and currency")
         db.add(wallet)
         await db.commit()
         await db.refresh(wallet)

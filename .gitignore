@@ -46,3 +46,8 @@ web/vite.config.d.ts
 # OS generated files
 .DS_Store
 Thumbs.db
+# Generated local export files
+var/
+.benchmark/
+reader-journal.sqlite
+benchmark-result.json

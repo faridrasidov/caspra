@@ -1,13 +1,13 @@
-# app/services/device_ops.py
+from __future__ import annotations
 
+# app/services/device_ops.py
 from datetime import UTC, datetime, timedelta
 import hashlib
 import hmac
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.domain_errors import NotFoundError, ValidationError
@@ -34,6 +34,11 @@ from app.schemas.device_ops import (
     SyncStatusOut,
     TelemetryPushRequest,
 )
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 FIRMWARE_URL_TTL_MINUTES = 15
 COMMAND_LEASE_MINUTES = 2

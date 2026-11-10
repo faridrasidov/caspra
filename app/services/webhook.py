@@ -1,5 +1,6 @@
-# app/services/webhook.py
+from __future__ import annotations
 
+# app/services/webhook.py
 import asyncio
 from datetime import UTC, datetime, timedelta
 import hashlib
@@ -8,19 +9,24 @@ import ipaddress
 import json
 import secrets
 import socket
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
-from uuid import UUID
 
 import httpx
 from sqlalchemy import func, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import NotFoundError, ValidationError
 from app.core.metrics import increment_metric, set_metric_gauge
 from app.models.tenant.organization import Webhook
 from app.models.tenant.webhook_delivery import WebhookDelivery, WebhookDeliveryStatus
-from app.schemas.webhook import WebhookCreate, WebhookUpdate
 from app.services.base import TenantScopedService
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.webhook import WebhookCreate, WebhookUpdate
 
 SUBSCRIBABLE_EVENT_TYPES: list[str] = [
     "customer.created",
@@ -115,17 +121,38 @@ class WebhookService(TenantScopedService):
                 processed += 1
         return processed
 
-    async def deliver(self, db: AsyncSession, delivery_id: UUID) -> bool:
+    async def deliver(  # noqa: PLR0911 - explicit terminal and lease guards
+        self, db: AsyncSession, delivery_id: UUID
+    ) -> bool:
         stmt = (
             select(WebhookDelivery, Webhook)
             .join(Webhook, Webhook.id == WebhookDelivery.webhook_id)
             .where(WebhookDelivery.id == delivery_id)
-            .with_for_update()
+            .with_for_update(skip_locked=True)
         )
         row = (await db.execute(stmt)).first()
         if row is None:
             return False
         delivery, webhook = row
+        now = datetime.now(UTC)
+        locked_at = delivery.locked_at
+        if locked_at is not None and locked_at.tzinfo is None:
+            locked_at = locked_at.replace(tzinfo=UTC)
+        if (
+            delivery.status == WebhookDeliveryStatus.PROCESSING.value
+            and locked_at is not None
+            and locked_at > now - PROCESSING_LEASE
+        ):
+            return False
+        next_retry = delivery.next_retry_at
+        if next_retry is not None and next_retry.tzinfo is None:
+            next_retry = next_retry.replace(tzinfo=UTC)
+        if (
+            delivery.status == WebhookDeliveryStatus.RETRYING.value
+            and next_retry is not None
+            and next_retry > now
+        ):
+            return False
         if delivery.status in {
             WebhookDeliveryStatus.SUCCESS.value,
             WebhookDeliveryStatus.DEAD.value,
@@ -140,7 +167,13 @@ class WebhookService(TenantScopedService):
         delivery.status = WebhookDeliveryStatus.PROCESSING.value
         delivery.locked_at = datetime.now(UTC)
         delivery.attempts += 1
+        lease_token = secrets.token_hex(24)
+        delivery.lease_token = lease_token
         await db.commit()
+
+        # No database transaction is held while performing external I/O.
+        db.expunge(delivery)
+        db.expunge(webhook)
 
         try:
             await validate_webhook_destination(webhook.url)
@@ -179,6 +212,25 @@ class WebhookService(TenantScopedService):
                 self._schedule_retry(delivery, f"HTTP {response.status_code}")
         except (httpx.HTTPError, OSError, ValueError) as exc:
             self._schedule_retry(delivery, str(exc))
+        current = (
+            await db.execute(
+                select(WebhookDelivery).where(WebhookDelivery.id == delivery_id).with_for_update()
+            )
+        ).scalar_one()
+        if current.lease_token != lease_token:
+            await db.rollback()
+            return False
+        for field in (
+            "status",
+            "response_code",
+            "response_body",
+            "error",
+            "next_retry_at",
+            "delivered_at",
+        ):
+            setattr(current, field, getattr(delivery, field))
+        current.lease_token = None
+        current.locked_at = None
         delivery.locked_at = None
         await db.commit()
         return True
@@ -245,6 +297,7 @@ class WebhookService(TenantScopedService):
         delivery.next_retry_at = None
         delivery.delivered_at = None
         delivery.locked_at = None
+        delivery.lease_token = None
         await db.commit()
         await db.refresh(delivery)
         return delivery

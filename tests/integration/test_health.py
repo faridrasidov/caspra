@@ -22,5 +22,5 @@ class TestHealth:
 
         metrics = await client.get("/api/v1/metrics")
         assert metrics.status_code == 200
-        assert "# TYPE caspra_database_latency_seconds summary" in metrics.text
+        assert "# TYPE caspra_database_latency_seconds histogram" in metrics.text
         assert "caspra_database_latency_seconds_count " in metrics.text

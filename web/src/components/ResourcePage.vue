@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useQuery } from "@tanstack/vue-query";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import { apiRequest } from "../api/client";
 import { formatMoney, renderValue } from "../utils/format";
@@ -16,6 +16,7 @@ export type ResourceColumn = {
   numeric?: boolean;
   kind?: "status" | "money" | "revoked-status";
   currencyKey?: string;
+  labels?: Record<string, string>;
 };
 
 type PaginatedResult = {
@@ -34,19 +35,22 @@ const props = defineProps<{
 }>();
 
 const search = ref("");
+const page = ref(1);
+const serverSearch = ref("");
+let searchTimer: ReturnType<typeof setTimeout>;
+watch(search, (value) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { serverSearch.value = value; page.value = 1; }, 250);
+});
 const resource = useQuery({
-  queryKey: ["resource", props.endpoint],
-  queryFn: () => apiRequest<PaginatedResult>(`${props.endpoint}?page=1&limit=100`),
+  refetchInterval: 15000,
+  queryKey: computed(() => ["resource", props.endpoint, page.value, serverSearch.value]),
+  queryFn: () => apiRequest<PaginatedResult>(`${props.endpoint}${props.endpoint.includes('?') ? '&' : '?'}page=${page.value}&limit=20&q=${encodeURIComponent(serverSearch.value)}`),
 });
-const rows = computed(() => {
-  const normalized = search.value.trim().toLowerCase();
-  if (!normalized) return resource.data.value?.items ?? [];
-  return (resource.data.value?.items ?? []).filter((row) =>
-    JSON.stringify(row).toLowerCase().includes(normalized),
-  );
-});
+const rows = computed(() => resource.data.value?.items ?? []);
 
 function cellValue(row: ResourceRecord, column: ResourceColumn) {
+  if (column.labels) return column.labels[String(row[column.key])] ?? renderValue(row[column.key]);
   if (column.kind === "money") {
     return formatMoney(
       Number(row[column.key]),
@@ -58,11 +62,11 @@ function cellValue(row: ResourceRecord, column: ResourceColumn) {
 </script>
 
 <template>
-  <div>
+  <div class="min-w-0">
     <PageHeader :title="title" :description="description">
       <template v-if="$slots.actions" #actions><slot name="actions" /></template>
     </PageHeader>
-    <section class="overflow-hidden rounded-md border border-line bg-white">
+    <section class="min-w-0 overflow-hidden rounded-md border border-line bg-white">
       <div class="flex min-h-14 items-center justify-between gap-3 border-b border-line p-2.5 max-[760px]:flex-col max-[760px]:items-stretch">
         <SearchField v-model="search" :placeholder="`Search ${title.toLowerCase()}`" />
         <span class="text-[10px] text-muted">{{ resource.data.value?.total ?? 0 }} records</span>
@@ -119,6 +123,11 @@ function cellValue(row: ResourceRecord, column: ResourceColumn) {
         </table>
       </div>
       <DataState v-else kind="empty" :message="`No ${title.toLowerCase()} found.`" />
+      <footer class="flex items-center justify-between border-t border-line p-3 text-xs">
+        <button class="rounded border border-line px-3 py-2 disabled:opacity-40" :disabled="page <= 1" @click="page--">Previous</button>
+        <span>Page {{ page }} · {{ resource.data.value?.total ?? 0 }} records</span>
+        <button class="rounded border border-line px-3 py-2 disabled:opacity-40" :disabled="page * 20 >= (resource.data.value?.total ?? 0)" @click="page++">Next</button>
+      </footer>
     </section>
   </div>
 </template>

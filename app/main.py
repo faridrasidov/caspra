@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.admin.router import admin_router
+from app.api.customer.router import router as customer_router
 from app.api.device.router import device_router
 from app.api.docs import register_docs
 from app.api.public.router import public_router
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router, prefix=settings.admin_api_prefix)
     app.include_router(device_router, prefix=settings.device_api_prefix)
     app.include_router(public_router, prefix=settings.public_api_prefix)
+    app.include_router(customer_router, prefix=settings.customer_api_prefix)
 
     register_docs(app)
     return app

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import deps
-from app.api.deps import get_current_admin, require_admin_permission
+from app.api.deps import require_admin_permission
 from app.core.admin_permissions import AdminPermission
 from app.models.identity.user import User
 from app.schemas.transaction import TransactionOut
@@ -29,13 +29,14 @@ router = APIRouter(prefix="/wallets", tags=["admin-wallets"])
 @router.get("", response_model=PaginatedWalletOut)
 async def list_wallets(
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.WALLETS_READ))],
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    q: str | None = Query(None, max_length=200),
 ) -> PaginatedWalletOut:
     """List wallets for the caller's tenant."""
     try:
-        result = await WalletService().list_wallets(db, current_admin.tenant_id, page, limit)
+        result = await WalletService().list_wallets(db, current_admin.tenant_id, page, limit, q=q)
         return PaginatedWalletOut(**result)
     except HTTPException:
         raise
@@ -50,7 +51,9 @@ async def list_wallets(
 async def create_wallet(
     payload: WalletCreate,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[
+        User, Depends(require_admin_permission(AdminPermission.WALLETS_ADJUST))
+    ],
 ) -> WalletOut:
     """Create a wallet for a customer."""
     try:
@@ -88,7 +91,7 @@ async def transfer(
 async def get_wallet(
     wallet_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.WALLETS_READ))],
 ) -> WalletOut:
     """Get a single wallet."""
     try:
@@ -106,15 +109,18 @@ async def get_wallet(
 async def get_balance(
     wallet_id: UUID,
     db: Annotated[AsyncSession, Depends(deps.get_db)],
-    current_admin: Annotated[User, Depends(get_current_admin)],
+    current_admin: Annotated[User, Depends(require_admin_permission(AdminPermission.WALLETS_READ))],
 ) -> WalletBalanceOut:
     """Get a wallet's current balance."""
     try:
         wallet = await LedgerService().get_balance(db, current_admin.tenant_id, wallet_id)
+        reserved = await LedgerService()._active_hold_total(db, current_admin.tenant_id, wallet_id)
         return WalletBalanceOut(
             wallet_id=wallet.id,
             currency=wallet.currency,
             balance_minor=wallet.balance_minor,
+            reserved_minor=reserved,
+            available_minor=wallet.balance_minor - reserved,
         )
     except HTTPException:
         raise

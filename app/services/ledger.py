@@ -1,11 +1,14 @@
-# app/services/ledger.py
+from __future__ import annotations
 
+# app/services/ledger.py
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from typing import TYPE_CHECKING
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.domain_errors import (
     ConflictError,
@@ -13,8 +16,13 @@ from app.core.domain_errors import (
     NotFoundError,
     ValidationError,
 )
+from app.engines.authorization import AuthorizationEngine
+from app.models.catalog.arcade import PlaySession
 from app.models.ledger.hold import Hold, HoldStatus
+from app.models.ledger.operations import FinancialControl, TransactionAllocation
 from app.models.ledger.wallet import (
+    Customer,
+    CustomerStatus,
     LedgerAccount,
     LedgerAccountStatus,
     LedgerAccountType,
@@ -26,16 +34,22 @@ from app.models.ledger.wallet import (
     TransactionStatus,
     TransactionType,
     Wallet,
+    WalletStatus,
     WalletTransfer,
-)
-from app.schemas.wallet import (
-    WalletDeductRequest,
-    WalletTopupRequest,
-    WalletTransferRequest,
+    WalletType,
 )
 from app.services.webhook import WebhookService
 from app.utils.idempotency import canonical_request_hash, find_existing_by_idempotency_key
 from app.utils.money import assert_integer_amount
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.schemas.wallet import (
+        WalletDeductRequest,
+        WalletTopupRequest,
+        WalletTransferRequest,
+    )
 
 DEFAULT_HOLD_EXPIRES_SECONDS = 15 * 60
 MAX_HOLD_EXPIRES_SECONDS = 24 * 60 * 60
@@ -47,6 +61,17 @@ class LedgerService:
     Enforces integer minor units, idempotency, row-level locking, append-only
     double-entry, and tenant isolation.
     """
+
+    def __init__(self, *, commit: bool = True, allow_paused: bool = False) -> None:
+        self.commit = commit
+        self.allow_paused = allow_paused
+
+    async def _finish(self, db: AsyncSession, resource) -> None:
+        if self.commit:
+            await db.commit()
+            await db.refresh(resource)
+        else:
+            await db.flush()
 
     async def topup(
         self,
@@ -69,6 +94,9 @@ class LedgerService:
             return existing
 
         wallet = await self._get_wallet_locked(db, tenant_id, wallet_id)
+        existing = await self._replay(db, tenant_id, payload.idempotency_key, request_hash)
+        if existing is not None:
+            return existing
         self._assert_currency(wallet, payload.currency)
 
         txn = await self._post(
@@ -108,6 +136,12 @@ class LedgerService:
             return existing
 
         wallet = await self._get_wallet_locked(db, tenant_id, wallet_id)
+        existing = await self._replay(db, tenant_id, payload.idempotency_key, request_hash)
+        if existing is not None:
+            return existing
+        await AuthorizationEngine().check_daily_limit(
+            db, tenant_id, wallet.customer_id, wallet.currency, payload.amount_minor
+        )
         self._assert_currency(wallet, payload.currency)
         available = wallet.balance_minor - await self._active_hold_total(db, tenant_id, wallet_id)
         if available < payload.amount_minor:
@@ -149,6 +183,22 @@ class LedgerService:
         if existing is not None:
             return existing
 
+        customer_ids = list(
+            (
+                await db.execute(
+                    select(Wallet.customer_id).where(
+                        Wallet.tenant_id == tenant_id,
+                        Wallet.id.in_([payload.from_wallet_id, payload.to_wallet_id]),
+                    )
+                )
+            ).scalars()
+        )
+        for customer_id in sorted(set(customer_ids), key=str):
+            await db.execute(
+                select(Customer)
+                .where(Customer.id == customer_id, Customer.tenant_id == tenant_id)
+                .with_for_update()
+            )
         # Lock wallets in a deterministic order (by id) to avoid deadlocks.
         wallets: dict[UUID, Wallet] = {}
         for wallet_id in sorted([payload.from_wallet_id, payload.to_wallet_id], key=str):
@@ -156,9 +206,17 @@ class LedgerService:
         from_wallet = wallets[payload.from_wallet_id]
         to_wallet = wallets[payload.to_wallet_id]
 
+        existing = await self._replay(db, tenant_id, payload.idempotency_key, request_hash)
+        if existing is not None:
+            return existing
         self._assert_currency(from_wallet, payload.currency)
         self._assert_currency(to_wallet, payload.currency)
-        if from_wallet.balance_minor < payload.amount_minor:
+        if from_wallet.type != WalletType.CREDIT.value or to_wallet.type != WalletType.CREDIT.value:
+            raise ValidationError("Only paid credit can be transferred")
+        available = from_wallet.balance_minor - await self._active_hold_total(
+            db, tenant_id, from_wallet.id
+        )
+        if available < payload.amount_minor:
             raise InsufficientFundsError
 
         txn = Transaction(
@@ -232,18 +290,15 @@ class LedgerService:
             amount_minor=amount_minor,
             reason=reason,
         )
-        existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
-        if existing is not None:
-            stmt = select(Refund).where(Refund.refund_transaction_id == existing.id)
-            prior = (await db.execute(stmt)).scalars().first()
-            if prior is not None:
-                return prior
-            raise ConflictError(
-                "Idempotency key belongs to a non-refund transaction",
-                code="idempotency_conflict",
-            )
+        prior = await self._refund_replay(db, tenant_id, idempotency_key, request_hash)
+        if prior is not None:
+            return prior
 
+        play = await self._lock_play_for_refund(db, tenant_id, transaction_id)
         original = await self._get_transaction(db, tenant_id, transaction_id, for_update=True)
+        prior = await self._refund_replay(db, tenant_id, idempotency_key, request_hash)
+        if prior is not None:
+            return prior
         if original.type not in {
             TransactionType.DEBIT.value,
             TransactionType.CAPTURE.value,
@@ -269,7 +324,33 @@ class LedgerService:
 
         if original.wallet_id is None:
             raise ValidationError("Original transaction has no wallet to refund")
-        wallet = await self._get_wallet_locked(db, tenant_id, original.wallet_id)
+        allocation_rows = list(
+            (
+                await db.execute(
+                    select(TransactionAllocation)
+                    .where(
+                        TransactionAllocation.tenant_id == tenant_id,
+                        TransactionAllocation.transaction_id == original.id,
+                    )
+                    .order_by(TransactionAllocation.wallet_id)
+                )
+            ).scalars()
+        )
+        sources = [(row.wallet_id, row.amount_minor) for row in allocation_rows] or [
+            (original.wallet_id, original.amount_minor)
+        ]
+        wallets = {
+            wid: await self._get_wallet_locked(db, tenant_id, wid, for_refund=True)
+            for wid in sorted({wid for wid, _ in sources} | {original.wallet_id}, key=str)
+        }
+        wallet = wallets[original.wallet_id]
+        if sum(value for _, value in sources) != original.amount_minor:
+            raise ConflictError("Original funding allocations do not balance")
+        if any(
+            target.currency != original.currency or target.customer_id != wallet.customer_id
+            for target in wallets.values()
+        ):
+            raise ConflictError("Original funding wallets do not match the purchase")
 
         refund_txn = Transaction(
             tenant_id=tenant_id,
@@ -282,39 +363,22 @@ class LedgerService:
             wallet_id=wallet.id,
             customer_id=original.customer_id,
             description=reason,
+            device_id=original.device_id,
+            location_id=original.location_id,
         )
         db.add(refund_txn)
         await db.flush()
 
-        wallet_account = await self._wallet_account(db, tenant_id, wallet)
-        revenue_account = await self._system_account(
-            db, tenant_id, LedgerAccountType.MERCHANT_REVENUE, original.currency
+        await self._restore_refund_sources(
+            db, tenant_id, original, refund_txn, sources, wallets, already_refunded, refund_amount
         )
-        db.add_all(
-            [
-                LedgerEntry(
-                    tenant_id=tenant_id,
-                    transaction_id=refund_txn.id,
-                    account_id=wallet_account.id,
-                    wallet_id=wallet.id,
-                    direction=LedgerDirection.CREDIT.value,
-                    amount_minor=refund_amount,
-                    currency=original.currency,
-                ),
-                LedgerEntry(
-                    tenant_id=tenant_id,
-                    transaction_id=refund_txn.id,
-                    account_id=revenue_account.id,
-                    wallet_id=None,
-                    direction=LedgerDirection.DEBIT.value,
-                    amount_minor=refund_amount,
-                    currency=original.currency,
-                ),
-            ]
-        )
-        wallet.balance_minor += refund_amount
         if already_refunded + refund_amount == original.amount_minor:
             original.status = TransactionStatus.REVERSED.value
+            if play is not None:
+                play.status = "refunded"
+                play.refund_transaction_id = refund_txn.id
+                play.resolution_reason = reason
+                play.outcome_at = datetime.now(UTC)
 
         refund_row = Refund(
             tenant_id=tenant_id,
@@ -331,10 +395,11 @@ class LedgerService:
             event_types=["transaction.posted", "transaction.refunded"],
         )
         try:
-            await db.commit()
-            await db.refresh(refund_row)
+            await self._finish(db, refund_row)
             return refund_row
         except IntegrityError:
+            if not self.commit:
+                raise
             await db.rollback()
             replay = await self._replay(db, tenant_id, idempotency_key, request_hash)
             if replay is None:
@@ -347,6 +412,96 @@ class LedgerService:
                     code="idempotency_conflict",
                 ) from None
             return prior
+
+    async def _refund_replay(self, db, tenant_id, key, request_hash):
+        existing = await self._replay(db, tenant_id, key, request_hash)
+        if existing is None:
+            return None
+        prior = (
+            await db.execute(
+                select(Refund).where(
+                    Refund.tenant_id == tenant_id, Refund.refund_transaction_id == existing.id
+                )
+            )
+        ).scalar_one_or_none()
+        if prior is None:
+            raise ConflictError(
+                "Idempotency key belongs to a non-refund transaction", code="idempotency_conflict"
+            )
+        return prior
+
+    async def _lock_play_for_refund(self, db, tenant_id, transaction_id):
+        play = (
+            await db.execute(
+                select(PlaySession)
+                .where(
+                    PlaySession.tenant_id == tenant_id, PlaySession.transaction_id == transaction_id
+                )
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        if play is not None and play.status == "authorized":
+            deadline = (
+                play.execute_before.replace(tzinfo=UTC)
+                if play.execute_before.tzinfo is None
+                else play.execute_before
+            )
+            if deadline > datetime.now(UTC):
+                raise ConflictError("Await the activation outcome before refunding this play")
+        return play
+
+    async def _restore_refund_sources(
+        self, db, tenant_id, original, refund_txn, sources, wallets, already_refunded, refund_amount
+    ):
+        revenue_account = await self._system_account(
+            db, tenant_id, LedgerAccountType.MERCHANT_REVENUE, original.currency
+        )
+        distributed_before = distributed_after = 0
+        for index, (wid, source_amount) in enumerate(sources):
+            if index == len(sources) - 1:
+                before = already_refunded - distributed_before
+                after = already_refunded + refund_amount - distributed_after
+            else:
+                before = already_refunded * source_amount // original.amount_minor
+                after = (already_refunded + refund_amount) * source_amount // original.amount_minor
+            distributed_before += before
+            distributed_after += after
+            portion = after - before
+            if portion:
+                target = wallets[wid]
+                account = await self._wallet_account(db, tenant_id, target)
+                db.add(
+                    LedgerEntry(
+                        tenant_id=tenant_id,
+                        transaction_id=refund_txn.id,
+                        account_id=account.id,
+                        wallet_id=wid,
+                        direction="credit",
+                        amount_minor=portion,
+                        currency=original.currency,
+                    )
+                )
+                db.add(
+                    TransactionAllocation(
+                        tenant_id=tenant_id,
+                        transaction_id=refund_txn.id,
+                        wallet_id=wid,
+                        amount_minor=portion,
+                        wallet_type=target.type,
+                    )
+                )
+                target.balance_minor += portion
+        db.add(
+            LedgerEntry(
+                tenant_id=tenant_id,
+                transaction_id=refund_txn.id,
+                account_id=revenue_account.id,
+                wallet_id=None,
+                direction="debit",
+                amount_minor=refund_amount,
+                currency=original.currency,
+            )
+        )
 
     async def charge(
         self,
@@ -379,6 +534,12 @@ class LedgerService:
             return existing
 
         wallet = await self._get_wallet_locked(db, tenant_id, wallet_id)
+        existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
+        if existing is not None:
+            return existing
+        await AuthorizationEngine().check_daily_limit(
+            db, tenant_id, wallet.customer_id, wallet.currency, amount_minor
+        )
         self._assert_currency(wallet, currency)
         available = wallet.balance_minor - await self._active_hold_total(db, tenant_id, wallet_id)
         if available < amount_minor:
@@ -426,6 +587,15 @@ class LedgerService:
             ]
         )
         wallet.balance_minor -= amount_minor
+        db.add(
+            TransactionAllocation(
+                tenant_id=tenant_id,
+                transaction_id=txn.id,
+                wallet_id=wallet.id,
+                amount_minor=amount_minor,
+                wallet_type=wallet.type,
+            )
+        )
         return await self._commit_transaction(db, txn, tenant_id, idempotency_key, request_hash)
 
     async def preauth(
@@ -481,6 +651,116 @@ class LedgerService:
         db.add(hold)
         return await self._commit_hold(db, hold, tenant_id, idempotency_key, request_hash)
 
+    async def charge_customer(
+        self,
+        db: AsyncSession,
+        tenant_id: UUID,
+        customer_id: UUID,
+        *,
+        amount_minor: int,
+        currency: str,
+        idempotency_key: UUID,
+        device_id: UUID,
+        description: str,
+    ) -> Transaction:
+        """Post a single purchase, allocating bonus first and paid credit second."""
+        assert_integer_amount(amount_minor)
+        request_hash = canonical_request_hash(
+            "customer.charge",
+            customer_id=customer_id,
+            amount_minor=amount_minor,
+            currency=currency,
+            device_id=device_id,
+            description=description,
+        )
+        existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
+        if existing is not None:
+            return existing
+        stmt = (
+            select(Wallet.id)
+            .where(
+                Wallet.tenant_id == tenant_id,
+                Wallet.customer_id == customer_id,
+                Wallet.currency == currency,
+                Wallet.type.in_([WalletType.CREDIT.value, WalletType.BONUS.value]),
+                Wallet.status != WalletStatus.CLOSED.value,
+            )
+            .order_by(Wallet.id)
+        )
+        ids = list((await db.execute(stmt)).scalars())
+        wallets = [await self._get_wallet_locked(db, tenant_id, wid) for wid in ids]
+        existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
+        if existing is not None:
+            return existing
+        available = {
+            wallet.id: wallet.balance_minor
+            - await self._active_hold_total(db, tenant_id, wallet.id)
+            for wallet in wallets
+        }
+        await AuthorizationEngine().check_daily_limit(
+            db, tenant_id, customer_id, currency, amount_minor
+        )
+        paid = next((w for w in wallets if w.type == WalletType.CREDIT.value), None)
+        if paid is None or sum(available.values()) < amount_minor:
+            raise InsufficientFundsError
+        txn = Transaction(
+            tenant_id=tenant_id,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            type="debit",
+            amount_minor=amount_minor,
+            currency=currency,
+            status="posted",
+            wallet_id=paid.id,
+            customer_id=customer_id,
+            device_id=device_id,
+            description=description,
+        )
+        db.add(txn)
+        await db.flush()
+        revenue = await self._system_account(
+            db, tenant_id, LedgerAccountType.MERCHANT_REVENUE, currency
+        )
+        remaining = amount_minor
+        for wallet in sorted(wallets, key=lambda w: (w.type != WalletType.BONUS.value, str(w.id))):
+            portion = min(remaining, available[wallet.id])
+            if portion > 0:
+                account = await self._wallet_account(db, tenant_id, wallet)
+                db.add(
+                    LedgerEntry(
+                        tenant_id=tenant_id,
+                        transaction_id=txn.id,
+                        account_id=account.id,
+                        wallet_id=wallet.id,
+                        direction="debit",
+                        amount_minor=portion,
+                        currency=currency,
+                    )
+                )
+                db.add(
+                    TransactionAllocation(
+                        tenant_id=tenant_id,
+                        transaction_id=txn.id,
+                        wallet_id=wallet.id,
+                        amount_minor=portion,
+                        wallet_type=wallet.type,
+                    )
+                )
+                wallet.balance_minor -= portion
+                remaining -= portion
+        db.add(
+            LedgerEntry(
+                tenant_id=tenant_id,
+                transaction_id=txn.id,
+                account_id=revenue.id,
+                wallet_id=None,
+                direction="credit",
+                amount_minor=amount_minor,
+                currency=currency,
+            )
+        )
+        return await self._commit_transaction(db, txn, tenant_id, idempotency_key, request_hash)
+
     async def capture(
         self,
         db: AsyncSession,
@@ -500,13 +780,16 @@ class LedgerService:
             return existing
 
         hold = await self._get_hold(db, tenant_id, hold_id)
+        existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
+        if existing is not None:
+            return existing
         if hold.expires_at is not None:
             expires_at = hold.expires_at
             if expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=UTC)
             if expires_at <= datetime.now(UTC):
                 hold.status = HoldStatus.EXPIRED.value
-                await db.commit()
+                await self._finish(db, hold)
                 raise ConflictError("Hold has expired")
         if hold.status != HoldStatus.PREAUTH.value:
             raise ConflictError(f"Hold is not capturable (status: {hold.status})")
@@ -517,6 +800,9 @@ class LedgerService:
             raise ValidationError("Capture amount exceeds the held amount")
 
         wallet = await self._get_wallet_locked(db, tenant_id, hold.wallet_id)
+        await AuthorizationEngine().check_daily_limit(
+            db, tenant_id, wallet.customer_id, wallet.currency, capture_amount
+        )
         if wallet.balance_minor < capture_amount:
             raise InsufficientFundsError
 
@@ -561,6 +847,15 @@ class LedgerService:
             ]
         )
         wallet.balance_minor -= capture_amount
+        db.add(
+            TransactionAllocation(
+                tenant_id=tenant_id,
+                transaction_id=txn.id,
+                wallet_id=wallet.id,
+                amount_minor=capture_amount,
+                wallet_type=wallet.type,
+            )
+        )
         hold.status = HoldStatus.CAPTURED.value
         hold.capture_transaction_id = txn.id
         return await self._commit_transaction(db, txn, tenant_id, idempotency_key, request_hash)
@@ -573,8 +868,7 @@ class LedgerService:
         if hold.status != HoldStatus.PREAUTH.value:
             raise ConflictError(f"Hold cannot be voided (status: {hold.status})")
         hold.status = HoldStatus.VOIDED.value
-        await db.commit()
-        await db.refresh(hold)
+        await self._finish(db, hold)
         return hold
 
     async def get_balance(self, db: AsyncSession, tenant_id: UUID, wallet_id: UUID) -> Wallet:
@@ -620,6 +914,8 @@ class LedgerService:
             if direction == LedgerDirection.CREDIT
             else LedgerAccountType.MERCHANT_REVENUE
         )
+        if direction == LedgerDirection.CREDIT and wallet.type == WalletType.BONUS.value:
+            counterparty_type = LedgerAccountType.PROMOTIONAL_EXPENSE
         counterparty = await self._system_account(db, tenant_id, counterparty_type, wallet.currency)
         counterparty_direction = (
             LedgerDirection.DEBIT if direction == LedgerDirection.CREDIT else LedgerDirection.CREDIT
@@ -645,6 +941,15 @@ class LedgerService:
                     currency=wallet.currency,
                 ),
             ]
+        )
+        db.add(
+            TransactionAllocation(
+                tenant_id=tenant_id,
+                transaction_id=txn.id,
+                wallet_id=wallet.id,
+                amount_minor=amount_minor,
+                wallet_type=wallet.type,
+            )
         )
         return txn
 
@@ -696,8 +1001,21 @@ class LedgerService:
         return hold
 
     async def _get_wallet_locked(
-        self, db: AsyncSession, tenant_id: UUID, wallet_id: UUID
+        self, db: AsyncSession, tenant_id: UUID, wallet_id: UUID, *, for_refund: bool = False
     ) -> Wallet:
+        customer_id = (
+            await db.execute(
+                select(Wallet.customer_id).where(
+                    Wallet.id == wallet_id, Wallet.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        if customer_id is not None:
+            await db.execute(
+                select(Customer)
+                .where(Customer.id == customer_id, Customer.tenant_id == tenant_id)
+                .with_for_update()
+            )
         stmt = (
             select(Wallet)
             .where(Wallet.id == wallet_id, Wallet.tenant_id == tenant_id)
@@ -707,6 +1025,24 @@ class LedgerService:
         wallet = result.scalars().first()
         if wallet is None:
             raise NotFoundError("Wallet", str(wallet_id))
+        control = (
+            await db.execute(
+                select(FinancialControl).where(FinancialControl.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        if control is not None and control.paused and not self.allow_paused:
+            raise ConflictError(
+                "Financial writes are paused pending reconciliation", code="financial_writes_paused"
+            )
+        customer = await db.get(Customer, wallet.customer_id)
+        if customer is None or customer.tenant_id != tenant_id:
+            raise NotFoundError("Customer")
+        if not for_refund and customer.status != CustomerStatus.ACTIVE.value:
+            raise ValidationError("Customer is not active")
+        if wallet.status == WalletStatus.CLOSED.value or (
+            not for_refund and wallet.status != WalletStatus.ACTIVE.value
+        ):
+            raise ValidationError("Wallet is not active")
         return wallet
 
     async def _get_transaction(
@@ -743,7 +1079,11 @@ class LedgerService:
             account = LedgerAccount(
                 tenant_id=tenant_id,
                 code=f"wallet:{wallet.id}",
-                type=LedgerAccountType.WALLET_LIABILITY.value,
+                type=(
+                    LedgerAccountType.BONUS_LIABILITY.value
+                    if wallet.type == WalletType.BONUS.value
+                    else LedgerAccountType.WALLET_LIABILITY.value
+                ),
                 currency=wallet.currency,
                 status=LedgerAccountStatus.ACTIVE.value,
                 wallet_id=wallet.id,
@@ -767,15 +1107,20 @@ class LedgerService:
         )
         account = (await db.execute(stmt)).scalars().first()
         if account is None:
-            account = LedgerAccount(
-                tenant_id=tenant_id,
-                code=code,
-                type=account_type.value,
-                currency=currency,
-                status=LedgerAccountStatus.ACTIVE.value,
+            insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+            await db.execute(
+                insert(LedgerAccount)
+                .values(
+                    id=uuid4(),
+                    tenant_id=tenant_id,
+                    code=code,
+                    type=account_type.value,
+                    currency=currency,
+                    status=LedgerAccountStatus.ACTIVE.value,
+                )
+                .on_conflict_do_nothing(index_elements=["tenant_id", "code", "currency"])
             )
-            db.add(account)
-            await db.flush()
+            account = (await db.execute(stmt)).scalar_one()
         return account
 
     async def _commit_transaction(
@@ -791,10 +1136,11 @@ class LedgerService:
             if transaction.type == TransactionType.CREDIT.value:
                 event_types.append("topup.confirmed")
             await self._enqueue_transaction_webhooks(db, transaction, event_types=event_types)
-            await db.commit()
-            await db.refresh(transaction)
+            await self._finish(db, transaction)
             return transaction
         except IntegrityError:
+            if not self.commit:
+                raise
             await db.rollback()
             existing = await self._replay(db, tenant_id, idempotency_key, request_hash)
             if existing is None:
@@ -831,10 +1177,11 @@ class LedgerService:
         request_hash: str,
     ) -> Hold:
         try:
-            await db.commit()
-            await db.refresh(hold)
+            await self._finish(db, hold)
             return hold
         except IntegrityError:
+            if not self.commit:
+                raise
             await db.rollback()
             existing = await self._replay_hold(db, tenant_id, idempotency_key, request_hash)
             if existing is None:
